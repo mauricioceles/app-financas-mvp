@@ -1,2 +1,13 @@
-# app-financas-mvp
-Produto Mínimo Viável (MVP) de um aplicativo multiplataforma para controle financeiro pessoal.
+# App de Gestão Financeira
+
+Projeto de Produto Mínimo Viável (MVP) para um aplicativo multiplataforma focado no controle de despesas e receitas.
+
+## Autoria
+
+Desenvolvedor: Mauricio Almeida Celes
+
+E-mail: mauricioceles@gmail.com
+
+Instituição: Gran Faculdade (Ciência da Computação)
+
+Tecnologias: Flutter e Firebase
