@@ -1,13 +1,17 @@
-# App de Gestão Financeira
+# app_financas_mvp
 
-Projeto de Produto Mínimo Viável (MVP) para um aplicativo multiplataforma focado no controle de despesas e receitas.
+A new Flutter project.
 
-## Autoria
+## Getting Started
 
-Desenvolvedor: Mauricio Almeida Celes
+This project is a starting point for a Flutter application.
 
-E-mail: mauricioceles@gmail.com
+A few resources to get you started if this is your first Flutter project:
 
-Instituição: Gran Faculdade (Ciência da Computação)
+- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
+- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
+- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
 
-Tecnologias: Flutter e Firebase
+For help getting started with Flutter development, view the
+[online documentation](https://docs.flutter.dev/), which offers tutorials,
+samples, guidance on mobile development, and a full API reference.
