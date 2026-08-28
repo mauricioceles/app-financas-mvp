@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "93889651143",
+    "project_id": "meu-mes-financas-mc2026",
+    "storage_bucket": "meu-mes-financas-mc2026.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:93889651143:android:ae500f8d710af889f079e2",
+        "android_client_info": {
+          "package_name": "com.example.app_financas_mvp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAL074wKCV0d83QK5EXk0VEb05Qi15UJus"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
