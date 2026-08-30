@@ -25,11 +25,40 @@ class _TelaPrincipalState extends State<TelaPrincipal>
   );
 
   final DateFormat _data = DateFormat('dd/MM/yyyy');
+  final DateFormat _mesAno = DateFormat('MMMM yyyy', 'pt_BR');
+
+  late DateTime _mesSelecionado;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    final agora = DateTime.now();
+    _mesSelecionado = DateTime(agora.year, agora.month);
+  }
+
+  void _alterarMes(int quantidade) {
+    setState(() {
+      _mesSelecionado = DateTime(
+        _mesSelecionado.year,
+        _mesSelecionado.month + quantidade,
+      );
+    });
+  }
+
+  void _voltarParaMesAtual() {
+    final agora = DateTime.now();
+    setState(() => _mesSelecionado = DateTime(agora.year, agora.month));
+  }
+
+  bool _pertenceAoMes(Lancamento lancamento) {
+    return lancamento.vencimento.year == _mesSelecionado.year &&
+        lancamento.vencimento.month == _mesSelecionado.month;
+  }
+
+  String _formatarMesSelecionado() {
+    final texto = _mesAno.format(_mesSelecionado);
+    return '${texto[0].toUpperCase()}${texto.substring(1)}';
   }
 
   @override
@@ -132,14 +161,21 @@ class _TelaPrincipalState extends State<TelaPrincipal>
   }
 
   Widget _construirLista(List<Lancamento> todos, TipoLancamento tipo) {
-    final lancamentos = todos.where((item) => item.tipo == tipo).toList();
+    final lancamentos = todos
+        .where((item) => item.tipo == tipo && _pertenceAoMes(item))
+        .toList();
 
     if (lancamentos.isEmpty) {
       final nome = tipo == TipoLancamento.receita
           ? 'conta a receber'
           : 'conta a pagar';
 
-      return Center(child: Text('Nenhuma $nome cadastrada.'));
+      return Center(
+        child: Text(
+          'Nenhuma $nome em ${_formatarMesSelecionado().toLowerCase()}.',
+          textAlign: TextAlign.center,
+        ),
+      );
     }
 
     return ListView.separated(
@@ -211,6 +247,80 @@ class _TelaPrincipalState extends State<TelaPrincipal>
     );
   }
 
+  Widget _construirSeletorDeMes() {
+    final agora = DateTime.now();
+    final estaNoMesAtual =
+        _mesSelecionado.year == agora.year &&
+        _mesSelecionado.month == agora.month;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: 'MÃªs anterior',
+            onPressed: () => _alterarMes(-1),
+            icon: const Icon(Icons.chevron_left),
+          ),
+          Expanded(
+            child: Text(
+              _formatarMesSelecionado(),
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
+          ),
+          TextButton(
+            onPressed: estaNoMesAtual ? null : _voltarParaMesAtual,
+            child: const Text('Hoje'),
+          ),
+          IconButton(
+            tooltip: 'PrÃ³ximo mÃªs',
+            onPressed: () => _alterarMes(1),
+            icon: const Icon(Icons.chevron_right),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _construirResumo(List<Lancamento> todos) {
+    final lancamentosDoMes = todos.where(_pertenceAoMes);
+    final receitas = lancamentosDoMes
+        .where((item) => item.tipo == TipoLancamento.receita)
+        .fold<double>(0, (total, item) => total + item.valor);
+    final despesas = lancamentosDoMes
+        .where((item) => item.tipo == TipoLancamento.despesa)
+        .fold<double>(0, (total, item) => total + item.valor);
+    final saldo = receitas - despesas;
+
+    return Card(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+        child: Row(
+          children: [
+            _ItemResumo(
+              titulo: 'Receitas',
+              valor: _moeda.format(receitas),
+              cor: Colors.green,
+            ),
+            _ItemResumo(
+              titulo: 'Despesas',
+              valor: _moeda.format(despesas),
+              cor: Colors.red,
+            ),
+            _ItemResumo(
+              titulo: 'Saldo previsto',
+              valor: _moeda.format(saldo),
+              cor: saldo >= 0 ? Colors.teal : Colors.red,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -244,11 +354,19 @@ class _TelaPrincipalState extends State<TelaPrincipal>
             return const Center(child: CircularProgressIndicator());
           }
 
-          return TabBarView(
-            controller: _tabController,
+          return Column(
             children: [
-              _construirLista(snapshot.data!, TipoLancamento.receita),
-              _construirLista(snapshot.data!, TipoLancamento.despesa),
+              _construirSeletorDeMes(),
+              _construirResumo(snapshot.data!),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _construirLista(snapshot.data!, TipoLancamento.receita),
+                    _construirLista(snapshot.data!, TipoLancamento.despesa),
+                  ],
+                ),
+              ),
             ],
           );
         },
@@ -257,6 +375,45 @@ class _TelaPrincipalState extends State<TelaPrincipal>
         onPressed: _abrirFormulario,
         icon: const Icon(Icons.add),
         label: const Text('Adicionar'),
+      ),
+    );
+  }
+}
+
+class _ItemResumo extends StatelessWidget {
+  const _ItemResumo({
+    required this.titulo,
+    required this.valor,
+    required this.cor,
+  });
+
+  final String titulo;
+  final String valor;
+  final Color cor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            titulo,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.labelMedium,
+          ),
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                valor,
+                style: Theme.of(context).textTheme.titleMedium
+                    ?.copyWith(color: cor, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
