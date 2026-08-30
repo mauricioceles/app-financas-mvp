@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import 'firebase_options.dart';
+import 'screens/tela_login.dart';
 import 'screens/tela_principal.dart';
 
 Future<void> main() async {
@@ -29,7 +30,50 @@ class AppFinancas extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
         useMaterial3: true,
       ),
-      home: const TelaPrincipal(),
+      home: const _PortaoDeAutenticacao(),
+    );
+  }
+}
+
+class _PortaoDeAutenticacao extends StatefulWidget {
+  const _PortaoDeAutenticacao();
+
+  @override
+  State<_PortaoDeAutenticacao> createState() => _PortaoDeAutenticacaoState();
+}
+
+class _PortaoDeAutenticacaoState extends State<_PortaoDeAutenticacao> {
+  bool _continuarSemConta = false;
+
+  Future<void> _usarContaTemporaria() async {
+    if (FirebaseAuth.instance.currentUser == null) {
+      await FirebaseAuth.instance.signInAnonymously();
+    }
+
+    if (mounted) {
+      setState(() => _continuarSemConta = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.userChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final usuario = snapshot.data;
+
+        if (usuario != null && (!usuario.isAnonymous || _continuarSemConta)) {
+          return const TelaPrincipal();
+        }
+
+        return TelaLogin(onContinuarSemConta: _usarContaTemporaria);
+      },
     );
   }
 }

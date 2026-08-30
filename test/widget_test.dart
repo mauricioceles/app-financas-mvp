@@ -1,30 +1,33 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:app_financas_mvp/main.dart';
+import 'package:app_financas_mvp/models/lancamento.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const AppFinancas());
+  test('converte os dados do Firestore em lançamento', () {
+    final vencimento = DateTime(2026, 8, 30);
+    final lancamento = Lancamento.fromMap('lancamento-1', {
+      'descricao': 'Internet',
+      'valor': 129.90,
+      'tipo': 'despesa',
+      'vencimento': Timestamp.fromDate(vencimento),
+      'status': 'pendente',
+      'forma': 'parcelado',
+      'parcelaAtual': 2,
+      'totalParcelas': 12,
+    });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(lancamento.id, 'lancamento-1');
+    expect(lancamento.descricao, 'Internet');
+    expect(lancamento.valor, 129.90);
+    expect(lancamento.tipo, TipoLancamento.despesa);
+    expect(
+      lancamento.vencimento.millisecondsSinceEpoch,
+      vencimento.millisecondsSinceEpoch,
+    );
+    expect(lancamento.status, StatusLancamento.pendente);
+    expect(lancamento.forma, FormaLancamento.parcelado);
+    expect(lancamento.parcelaAtual, 2);
+    expect(lancamento.totalParcelas, 12);
   });
 }

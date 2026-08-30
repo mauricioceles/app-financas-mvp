@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -102,6 +103,34 @@ class _TelaPrincipalState extends State<TelaPrincipal>
     }
   }
 
+  Future<void> _sair() async {
+    final confirmou = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Sair da conta?'),
+          content: const Text(
+            'Você poderá entrar novamente usando a mesma conta Google.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Sair'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmou == true) {
+      await FirebaseAuth.instance.signOut();
+    }
+  }
+
   Widget _construirLista(List<Lancamento> todos, TipoLancamento tipo) {
     final lancamentos = todos.where((item) => item.tipo == tipo).toList();
 
@@ -187,6 +216,13 @@ class _TelaPrincipalState extends State<TelaPrincipal>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Controle Financeiro'),
+        actions: [
+          IconButton(
+            tooltip: 'Sair da conta',
+            onPressed: _sair,
+            icon: const Icon(Icons.logout),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
