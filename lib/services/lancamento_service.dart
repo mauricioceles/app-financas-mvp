@@ -53,18 +53,17 @@ class LancamentoService {
 
     final lote = _firestore.batch();
     final grupoId = _colecao.doc().id;
-    final totalCentavos = (lancamento.valor * 100).round();
-    final valorBase = totalCentavos ~/ quantidade;
-    final centavosRestantes = totalCentavos % quantidade;
+    final valorParcelaCentavos = (lancamento.valor * 100).round();
+    final valorParcela = valorParcelaCentavos / 100;
+    final valorTotal = valorParcelaCentavos * quantidade / 100;
 
     for (var indice = 0; indice < quantidade; indice++) {
       final referencia = _colecao.doc();
-      final valorCentavos = valorBase + (indice < centavosRestantes ? 1 : 0);
 
       final parcela = Lancamento(
         id: referencia.id,
         descricao: lancamento.descricao,
-        valor: valorCentavos / 100,
+        valor: valorParcela,
         tipo: lancamento.tipo,
         vencimento: _adicionarMeses(lancamento.vencimento, indice),
         status: StatusLancamento.pendente,
@@ -76,7 +75,7 @@ class LancamentoService {
       lote.set(referencia, {
         ...parcela.toMap(),
         'grupoId': grupoId,
-        'valorTotal': lancamento.valor,
+        'valorTotal': valorTotal,
         'criadoEm': FieldValue.serverTimestamp(),
       });
     }

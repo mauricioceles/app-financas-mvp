@@ -178,10 +178,15 @@ class _FormularioLancamentoState extends State<FormularioLancamento> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                decoration: const InputDecoration(
-                  labelText: 'Valor total',
+                decoration: InputDecoration(
+                  labelText: _forma == FormaLancamento.parcelado
+                      ? 'Valor de cada parcela'
+                      : 'Valor',
+                  helperText: _forma == FormaLancamento.parcelado
+                      ? 'O valor será repetido em todas as parcelas.'
+                      : null,
                   prefixText: 'R\$ ',
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
                 ),
                 validator: (texto) {
                   final valor = _converterValor(texto ?? '');
