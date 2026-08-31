@@ -22,6 +22,7 @@ class _FormularioLancamentoState extends State<FormularioLancamento> {
   final _descricaoController = TextEditingController();
   final _valorController = TextEditingController();
   final _parcelasController = TextEditingController(text: '2');
+  final _descricaoFocus = FocusNode();
 
   late TipoLancamento _tipo;
   FormaLancamento _forma = FormaLancamento.vista;
@@ -39,6 +40,7 @@ class _FormularioLancamentoState extends State<FormularioLancamento> {
     _descricaoController.dispose();
     _valorController.dispose();
     _parcelasController.dispose();
+    _descricaoFocus.dispose();
     super.dispose();
   }
 
@@ -72,7 +74,7 @@ class _FormularioLancamentoState extends State<FormularioLancamento> {
     }
   }
 
-  Future<void> _salvar() async {
+  Future<void> _salvar({required bool fechar}) async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -100,7 +102,18 @@ class _FormularioLancamentoState extends State<FormularioLancamento> {
       );
 
       if (mounted) {
-        Navigator.of(context).pop(true);
+        if (fechar) {
+          Navigator.of(context).pop(true);
+        } else {
+          _descricaoController.clear();
+          _valorController.clear();
+          _descricaoFocus.requestFocus();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Lançamento salvo. Cadastre o próximo.'),
+            ),
+          );
+        }
       }
     } catch (erro) {
       if (mounted) {
@@ -161,6 +174,7 @@ class _FormularioLancamentoState extends State<FormularioLancamento> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _descricaoController,
+                focusNode: _descricaoFocus,
                 decoration: const InputDecoration(
                   labelText: 'Descrição',
                   border: OutlineInputBorder(),
@@ -181,10 +195,16 @@ class _FormularioLancamentoState extends State<FormularioLancamento> {
                 decoration: InputDecoration(
                   labelText: _forma == FormaLancamento.parcelado
                       ? 'Valor de cada parcela'
+                      : _forma == FormaLancamento.fixo
+                      ? 'Valor mensal'
                       : 'Valor',
-                  helperText: _forma == FormaLancamento.parcelado
-                      ? 'O valor será repetido em todas as parcelas.'
-                      : null,
+                  helperText: switch (_forma) {
+                    FormaLancamento.parcelado =>
+                      'O valor será repetido em todas as parcelas.',
+                    FormaLancamento.fixo =>
+                      'A conta será repetida mensalmente.',
+                    FormaLancamento.vista => null,
+                  },
                   prefixText: 'R\$ ',
                   border: const OutlineInputBorder(),
                 ),
@@ -211,6 +231,10 @@ class _FormularioLancamentoState extends State<FormularioLancamento> {
                   DropdownMenuItem(
                     value: FormaLancamento.parcelado,
                     child: Text('Parcelado'),
+                  ),
+                  DropdownMenuItem(
+                    value: FormaLancamento.fixo,
+                    child: Text('Fixo mensal'),
                   ),
                 ],
                 onChanged: (forma) {
@@ -246,19 +270,25 @@ class _FormularioLancamentoState extends State<FormularioLancamento> {
                 onPressed: _selecionarData,
                 icon: const Icon(Icons.calendar_month),
                 label: Text(
-                  'Primeiro vencimento: ${_formatarData(_vencimento)}',
+                  '${_forma == FormaLancamento.vista ? "Vencimento" : "Primeiro vencimento"}: '
+                  '${_formatarData(_vencimento)}',
                 ),
               ),
               const SizedBox(height: 24),
               FilledButton(
-                onPressed: _salvando ? null : _salvar,
+                onPressed: _salvando ? null : () => _salvar(fechar: false),
                 child: _salvando
                     ? const SizedBox(
                         width: 22,
                         height: 22,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Salvar lançamento'),
+                    : const Text('Salvar e cadastrar outra'),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton(
+                onPressed: _salvando ? null : () => _salvar(fechar: true),
+                child: const Text('Salvar e fechar'),
               ),
             ],
           ),

@@ -35,6 +35,9 @@ class _TelaPrincipalState extends State<TelaPrincipal>
     _tabController = TabController(length: 2, vsync: this);
     final agora = DateTime.now();
     _mesSelecionado = DateTime(agora.year, agora.month);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _garantirLancamentosFixos();
+    });
   }
 
   void _alterarMes(int quantidade) {
@@ -44,11 +47,27 @@ class _TelaPrincipalState extends State<TelaPrincipal>
         _mesSelecionado.month + quantidade,
       );
     });
+    _garantirLancamentosFixos();
   }
 
   void _voltarParaMesAtual() {
     final agora = DateTime.now();
     setState(() => _mesSelecionado = DateTime(agora.year, agora.month));
+    _garantirLancamentosFixos();
+  }
+
+  Future<void> _garantirLancamentosFixos() async {
+    try {
+      await _servico.garantirLancamentosFixosDoMes(_mesSelecionado);
+    } catch (erro) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Não foi possível carregar contas fixas: $erro'),
+          ),
+        );
+      }
+    }
   }
 
   bool _pertenceAoMes(Lancamento lancamento) {
@@ -104,15 +123,19 @@ class _TelaPrincipalState extends State<TelaPrincipal>
   }
 
   Future<void> _confirmarExclusao(Lancamento lancamento) async {
+    final mensagem = lancamento.forma == FormaLancamento.fixo
+        ? 'Deseja excluir "${lancamento.descricao}" somente de '
+              '${_formatarMesSelecionado().toLowerCase()}? A conta fixa '
+              'continuará nos próximos meses.'
+        : 'Deseja excluir "${lancamento.descricao}"? '
+              'Esta ação não poderá ser desfeita.';
+
     final confirmou = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
           title: const Text('Excluir lançamento?'),
-          content: Text(
-            'Deseja excluir "${lancamento.descricao}"? '
-            'Esta ação não poderá ser desfeita.',
-          ),
+          content: Text(mensagem),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -128,7 +151,15 @@ class _TelaPrincipalState extends State<TelaPrincipal>
     );
 
     if (confirmou == true) {
-      await _servico.excluir(lancamento.id);
+      try {
+        await _servico.excluir(lancamento);
+      } catch (erro) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Não foi possível excluir: $erro')),
+          );
+        }
+      }
     }
   }
 
@@ -162,7 +193,9 @@ class _TelaPrincipalState extends State<TelaPrincipal>
 
   Widget _construirLista(List<Lancamento> todos, TipoLancamento tipo) {
     final lancamentos = todos
-        .where((item) => item.tipo == tipo && _pertenceAoMes(item))
+        .where(
+          (item) => item.tipo == tipo && !item.excluido && _pertenceAoMes(item),
+        )
         .toList();
 
     if (lancamentos.isEmpty) {
@@ -187,9 +220,14 @@ class _TelaPrincipalState extends State<TelaPrincipal>
         final receita = lancamento.tipo == TipoLancamento.receita;
         final concluido = lancamento.status == StatusLancamento.concluido;
 
-        final parcela = lancamento.totalParcelas > 1
+        final parcela =
+            lancamento.forma == FormaLancamento.parcelado &&
+                lancamento.totalParcelas > 1
             ? 'Parcela ${lancamento.parcelaAtual}/'
                   '${lancamento.totalParcelas} • '
+            : '';
+        final recorrencia = lancamento.forma == FormaLancamento.fixo
+            ? 'Conta fixa • '
             : '';
 
         return Card(
@@ -212,7 +250,7 @@ class _TelaPrincipalState extends State<TelaPrincipal>
               ),
             ),
             subtitle: Text(
-              '$parcela'
+              '$parcela$recorrencia'
               'Vencimento: ${_data.format(lancamento.vencimento)}\n'
               '${concluido ? "Concluído" : "Pendente"}',
             ),
@@ -258,7 +296,7 @@ class _TelaPrincipalState extends State<TelaPrincipal>
       child: Row(
         children: [
           IconButton(
-            tooltip: 'MÃªs anterior',
+            tooltip: 'Mês anterior',
             onPressed: () => _alterarMes(-1),
             icon: const Icon(Icons.chevron_left),
           ),
@@ -275,7 +313,7 @@ class _TelaPrincipalState extends State<TelaPrincipal>
             child: const Text('Hoje'),
           ),
           IconButton(
-            tooltip: 'PrÃ³ximo mÃªs',
+            tooltip: 'Próximo mês',
             onPressed: () => _alterarMes(1),
             icon: const Icon(Icons.chevron_right),
           ),
@@ -285,7 +323,9 @@ class _TelaPrincipalState extends State<TelaPrincipal>
   }
 
   Widget _construirResumo(List<Lancamento> todos) {
-    final lancamentosDoMes = todos.where(_pertenceAoMes);
+    final lancamentosDoMes = todos.where(
+      (item) => !item.excluido && _pertenceAoMes(item),
+    );
     final receitas = lancamentosDoMes
         .where((item) => item.tipo == TipoLancamento.receita)
         .fold<double>(0, (total, item) => total + item.valor);
@@ -342,7 +382,7 @@ class _TelaPrincipalState extends State<TelaPrincipal>
         ),
       ),
       body: StreamBuilder<List<Lancamento>>(
-        stream: _servico.observarLancamentos(),
+        stream: _servico.observarLancamentosDoMes(_mesSelecionado),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return Center(

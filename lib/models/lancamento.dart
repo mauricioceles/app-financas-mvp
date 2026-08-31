@@ -4,7 +4,7 @@ enum TipoLancamento { receita, despesa }
 
 enum StatusLancamento { pendente, concluido }
 
-enum FormaLancamento { vista, parcelado }
+enum FormaLancamento { vista, parcelado, fixo }
 
 class Lancamento {
   const Lancamento({
@@ -17,6 +17,9 @@ class Lancamento {
     required this.forma,
     required this.parcelaAtual,
     required this.totalParcelas,
+    this.grupoId,
+    this.recorrenciaId,
+    this.excluido = false,
   });
 
   final String id;
@@ -28,9 +31,12 @@ class Lancamento {
   final FormaLancamento forma;
   final int parcelaAtual;
   final int totalParcelas;
+  final String? grupoId;
+  final String? recorrenciaId;
+  final bool excluido;
 
   Map<String, dynamic> toMap() {
-    return {
+    return <String, dynamic>{
       'descricao': descricao.trim(),
       'valor': valor,
       'tipo': tipo.name,
@@ -39,6 +45,9 @@ class Lancamento {
       'forma': forma.name,
       'parcelaAtual': parcelaAtual,
       'totalParcelas': totalParcelas,
+      'excluido': excluido,
+      if (grupoId != null) 'grupoId': grupoId,
+      if (recorrenciaId != null) 'recorrenciaId': recorrenciaId,
     };
   }
 
@@ -51,8 +60,11 @@ class Lancamento {
       vencimento: (dados['vencimento'] as Timestamp).toDate(),
       status: StatusLancamento.values.byName(dados['status'] as String),
       forma: FormaLancamento.values.byName(dados['forma'] as String),
-      parcelaAtual: dados['parcelaAtual'] as int,
-      totalParcelas: dados['totalParcelas'] as int,
+      parcelaAtual: (dados['parcelaAtual'] as num?)?.toInt() ?? 1,
+      totalParcelas: (dados['totalParcelas'] as num?)?.toInt() ?? 1,
+      grupoId: dados['grupoId'] as String?,
+      recorrenciaId: dados['recorrenciaId'] as String?,
+      excluido: dados['excluido'] == true,
     );
   }
 }

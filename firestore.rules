@@ -7,5 +7,11 @@ service cloud.firestore {
         if request.auth != null
         && request.auth.uid == userId;
     }
+
+    match /usuarios/{userId}/recorrencias/{recorrenciaId} {
+      allow read, create, update, delete:
+        if request.auth != null
+        && request.auth.uid == userId;
+    }
   }
 }
