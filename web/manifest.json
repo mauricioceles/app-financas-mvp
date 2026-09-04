@@ -5,7 +5,7 @@
     "start_url": "/",
     "scope": "/",
     "display": "standalone",
-    "background_color": "#FFFFFF",
+    "background_color": "#F2FAF8",
     "theme_color": "#00897B",
     "description": "Controle pessoal de receitas e despesas.",
     "orientation": "portrait-primary",
