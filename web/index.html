@@ -32,8 +32,86 @@
 
   <title>Meu Mês Finanças</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      background: #f2faf8;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    #loading {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(160deg, #effaf7 0%, #ffffff 100%);
+      color: #173b36;
+      z-index: 9999;
+    }
+
+    .loading-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 32px;
+    }
+
+    .loading-logo {
+      display: grid;
+      place-items: center;
+      width: 76px;
+      height: 76px;
+      border-radius: 50%;
+      background: #00897b;
+      color: white;
+      font-size: 36px;
+      font-weight: 700;
+      box-shadow: 0 12px 30px rgba(0, 137, 123, 0.24);
+    }
+
+    .loading-title {
+      margin: 18px 0 6px;
+      font-size: 26px;
+      font-weight: 700;
+    }
+
+    .loading-status {
+      margin: 0 0 24px;
+      color: #52706b;
+      font-size: 14px;
+    }
+
+    .loading-spinner {
+      width: 28px;
+      height: 28px;
+      border: 3px solid rgba(0, 137, 123, 0.2);
+      border-top-color: #00897b;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
 </head>
 <body>
+  <div id="loading" role="status" aria-live="polite">
+    <div class="loading-content">
+      <div class="loading-logo">M</div>
+      <div class="loading-title">Meu M&ecirc;s</div>
+      <p id="loading-status" class="loading-status">
+        Preparando suas finan&ccedil;as...
+      </p>
+      <div class="loading-spinner" aria-hidden="true"></div>
+    </div>
+  </div>
+
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader
