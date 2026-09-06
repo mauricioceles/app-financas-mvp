@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../models/lancamento.dart';
 import '../services/lancamento_service.dart';
 import '../widgets/formulario_lancamento.dart';
+import 'tela_detalhe_lancamento.dart';
 
 class TelaPrincipal extends StatefulWidget {
   const TelaPrincipal({super.key});
@@ -106,61 +107,16 @@ class _TelaPrincipalState extends State<TelaPrincipal>
     }
   }
 
-  Future<void> _alternarStatus(Lancamento lancamento) async {
-    final novoStatus = lancamento.status == StatusLancamento.pendente
-        ? StatusLancamento.concluido
-        : StatusLancamento.pendente;
-
-    try {
-      await _servico.alterarStatus(lancamento.id, novoStatus);
-    } catch (erro) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Não foi possível alterar: $erro')),
-        );
-      }
-    }
-  }
-
-  Future<void> _confirmarExclusao(Lancamento lancamento) async {
-    final mensagem = lancamento.forma == FormaLancamento.fixo
-        ? 'Deseja excluir "${lancamento.descricao}" somente de '
-              '${_formatarMesSelecionado().toLowerCase()}? A conta fixa '
-              'continuará nos próximos meses.'
-        : 'Deseja excluir "${lancamento.descricao}"? '
-              'Esta ação não poderá ser desfeita.';
-
-    final confirmou = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Excluir lançamento?'),
-          content: Text(mensagem),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Excluir'),
-            ),
-          ],
-        );
-      },
+  Future<void> _abrirDetalhes(Lancamento lancamento) async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => TelaDetalheLancamento(
+          servico: _servico,
+          lancamentoId: lancamento.id,
+        ),
+      ),
     );
-
-    if (confirmou == true) {
-      try {
-        await _servico.excluir(lancamento);
-      } catch (erro) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Não foi possível excluir: $erro')),
-          );
-        }
-      }
-    }
   }
 
   Future<void> _sair() async {
@@ -219,6 +175,12 @@ class _TelaPrincipalState extends State<TelaPrincipal>
         final lancamento = lancamentos[index];
         final receita = lancamento.tipo == TipoLancamento.receita;
         final concluido = lancamento.status == StatusLancamento.concluido;
+        final atrasado = lancamento.estaAtrasadoEm(DateTime.now());
+        final corDoCard = concluido
+            ? const Color(0xFFE0F2E9)
+            : atrasado
+            ? const Color(0xFFFFE2E0)
+            : null;
 
         final parcela =
             lancamento.forma == FormaLancamento.parcelado &&
@@ -231,9 +193,9 @@ class _TelaPrincipalState extends State<TelaPrincipal>
             : '';
 
         return Card(
+          color: corDoCard,
           child: ListTile(
-            onTap: () => _alternarStatus(lancamento),
-            onLongPress: () => _confirmarExclusao(lancamento),
+            onTap: () => _abrirDetalhes(lancamento),
             leading: CircleAvatar(
               backgroundColor: receita ? Colors.green : Colors.red,
               child: Icon(
@@ -252,7 +214,11 @@ class _TelaPrincipalState extends State<TelaPrincipal>
             subtitle: Text(
               '$parcela$recorrencia'
               'Vencimento: ${_data.format(lancamento.vencimento)}\n'
-              '${concluido ? "Concluído" : "Pendente"}',
+              '${concluido
+                  ? (receita ? "Recebido" : "Pago")
+                  : atrasado
+                  ? "Atrasado"
+                  : "Pendente"}',
             ),
             isThreeLine: true,
             trailing: SizedBox(

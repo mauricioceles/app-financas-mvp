@@ -54,6 +54,17 @@ class LancamentoService {
         );
   }
 
+  Stream<Lancamento?> observarLancamento(String lancamentoId) {
+    return _colecao.doc(lancamentoId).snapshots().map((documento) {
+      final dados = documento.data();
+      if (!documento.exists || dados == null) {
+        return null;
+      }
+
+      return Lancamento.fromMap(documento.id, dados);
+    });
+  }
+
   Future<void> adicionar(Lancamento lancamento) async {
     if (lancamento.forma == FormaLancamento.fixo) {
       await _adicionarFixo(lancamento);
@@ -133,6 +144,12 @@ class LancamentoService {
         continue;
       }
 
+      final referencia = _colecao.doc(_idOcorrencia(documento.id, inicioMes));
+      final ocorrenciaJaExiste = await referencia.get();
+      if (ocorrenciaJaExiste.exists) {
+        continue;
+      }
+
       final dados = documento.data();
       final inicio = (dados['inicio'] as Timestamp).toDate();
 
@@ -144,7 +161,6 @@ class LancamentoService {
         inicioMes,
         (dados['diaVencimento'] as num).toInt(),
       );
-      final referencia = _colecao.doc(_idOcorrencia(documento.id, inicioMes));
       final valor = (dados['valor'] as num).toDouble();
 
       final lancamento = Lancamento(
@@ -228,14 +244,125 @@ class LancamentoService {
     await _colecao.doc(lancamentoId).update({'status': status.name});
   }
 
-  Future<void> excluir(Lancamento lancamento) async {
-    if (lancamento.forma == FormaLancamento.fixo &&
-        lancamento.recorrenciaId != null) {
+  Future<void> atualizarOcorrencia({
+    required Lancamento lancamento,
+    required String descricao,
+    required double valor,
+    required DateTime vencimento,
+  }) async {
+    final valorCentavos = (valor * 100).round();
+
+    await _colecao.doc(lancamento.id).update({
+      'descricao': descricao.trim(),
+      'valor': valorCentavos / 100,
+      'vencimento': Timestamp.fromDate(
+        DateTime(vencimento.year, vencimento.month, vencimento.day),
+      ),
+    });
+  }
+
+  Future<void> excluir(
+    Lancamento lancamento, {
+    EscopoExclusao escopo = EscopoExclusao.somenteEsta,
+  }) async {
+    if (!lancamento.fazParteDeSerie || escopo == EscopoExclusao.somenteEsta) {
+      if (lancamento.forma == FormaLancamento.fixo) {
+        await _colecao.doc(lancamento.id).update({'excluido': true});
+      } else {
+        await _colecao.doc(lancamento.id).delete();
+      }
+      return;
+    }
+
+    if (lancamento.forma == FormaLancamento.parcelado) {
+      await _excluirParcelas(lancamento, escopo);
+      return;
+    }
+
+    await _excluirContaFixa(lancamento, escopo);
+  }
+
+  Future<void> _excluirParcelas(
+    Lancamento lancamento,
+    EscopoExclusao escopo,
+  ) async {
+    final grupoId = lancamento.grupoId;
+    if (grupoId == null) {
+      await _colecao.doc(lancamento.id).delete();
+      return;
+    }
+
+    final snapshot = await _colecao.where('grupoId', isEqualTo: grupoId).get();
+    final documentos = snapshot.docs.where((documento) {
+      if (escopo == EscopoExclusao.todas) {
+        return true;
+      }
+
+      final parcelaAtual =
+          (documento.data()['parcelaAtual'] as num?)?.toInt() ?? 1;
+      return parcelaAtual >= lancamento.parcelaAtual;
+    });
+
+    await _excluirDocumentos(documentos.map((item) => item.reference).toList());
+  }
+
+  Future<void> _excluirContaFixa(
+    Lancamento lancamento,
+    EscopoExclusao escopo,
+  ) async {
+    final recorrenciaId = lancamento.recorrenciaId;
+    if (recorrenciaId == null) {
       await _colecao.doc(lancamento.id).update({'excluido': true});
       return;
     }
 
-    await _colecao.doc(lancamento.id).delete();
+    final snapshot = await _colecao
+        .where('recorrenciaId', isEqualTo: recorrenciaId)
+        .get();
+    final documentos = snapshot.docs.where((documento) {
+      if (escopo == EscopoExclusao.todas) {
+        return true;
+      }
+
+      final vencimento = (documento.data()['vencimento'] as Timestamp).toDate();
+      return !vencimento.isBefore(lancamento.vencimento);
+    }).toList();
+
+    final lote = _firestore.batch();
+    for (final documento in documentos) {
+      lote.delete(documento.reference);
+    }
+
+    final recorrencia = _recorrencias.doc(recorrenciaId);
+    if (escopo == EscopoExclusao.todas) {
+      lote.delete(recorrencia);
+    } else {
+      lote.update(recorrencia, {
+        'ativa': false,
+        'encerradaEm': Timestamp.fromDate(lancamento.vencimento),
+      });
+    }
+
+    await lote.commit();
+  }
+
+  Future<void> _excluirDocumentos(
+    List<DocumentReference<Map<String, dynamic>>> documentos,
+  ) async {
+    const limiteSeguro = 450;
+
+    for (var inicio = 0; inicio < documentos.length; inicio += limiteSeguro) {
+      final fim = (inicio + limiteSeguro < documentos.length)
+          ? inicio + limiteSeguro
+          : documentos.length;
+      final lote = _firestore.batch();
+
+      for (final documento in documentos.sublist(inicio, fim)) {
+        lote.delete(documento);
+      }
+
+      await lote.commit();
+    }
   }
 
   int _compararMeses(DateTime primeiro, DateTime segundo) {

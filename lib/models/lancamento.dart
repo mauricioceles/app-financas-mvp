@@ -6,6 +6,8 @@ enum StatusLancamento { pendente, concluido }
 
 enum FormaLancamento { vista, parcelado, fixo }
 
+enum EscopoExclusao { somenteEsta, estaEProximas, todas }
+
 class Lancamento {
   const Lancamento({
     required this.id,
@@ -34,6 +36,28 @@ class Lancamento {
   final String? grupoId;
   final String? recorrenciaId;
   final bool excluido;
+
+  bool get fazParteDeSerie =>
+      forma == FormaLancamento.parcelado || forma == FormaLancamento.fixo;
+
+  bool estaAtrasadoEm(DateTime referencia) {
+    if (status == StatusLancamento.concluido) {
+      return false;
+    }
+
+    final diaDoVencimento = DateTime(
+      vencimento.year,
+      vencimento.month,
+      vencimento.day,
+    );
+    final diaDeReferencia = DateTime(
+      referencia.year,
+      referencia.month,
+      referencia.day,
+    );
+
+    return diaDoVencimento.isBefore(diaDeReferencia);
+  }
 
   Map<String, dynamic> toMap() {
     return <String, dynamic>{

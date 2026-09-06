@@ -55,4 +55,51 @@ void main() {
     expect(lancamento.recorrenciaId, 'fixo-1');
     expect(lancamento.excluido, isTrue);
   });
+
+  test('identifica lançamentos que fazem parte de uma série', () {
+    Lancamento criar(FormaLancamento forma) => Lancamento(
+      id: '1',
+      descricao: 'Teste',
+      valor: 10,
+      tipo: TipoLancamento.despesa,
+      vencimento: DateTime(2026, 9, 10),
+      status: StatusLancamento.pendente,
+      forma: forma,
+      parcelaAtual: 1,
+      totalParcelas: 1,
+    );
+
+    expect(criar(FormaLancamento.vista).fazParteDeSerie, isFalse);
+    expect(criar(FormaLancamento.parcelado).fazParteDeSerie, isTrue);
+    expect(criar(FormaLancamento.fixo).fazParteDeSerie, isTrue);
+  });
+
+  test('considera atraso somente antes da data de referência', () {
+    final pendente = Lancamento(
+      id: '1',
+      descricao: 'Teste',
+      valor: 10,
+      tipo: TipoLancamento.despesa,
+      vencimento: DateTime(2026, 9, 5, 23, 59),
+      status: StatusLancamento.pendente,
+      forma: FormaLancamento.vista,
+      parcelaAtual: 1,
+      totalParcelas: 1,
+    );
+    final concluido = Lancamento(
+      id: '2',
+      descricao: 'Teste pago',
+      valor: 10,
+      tipo: TipoLancamento.despesa,
+      vencimento: DateTime(2026, 9, 5),
+      status: StatusLancamento.concluido,
+      forma: FormaLancamento.vista,
+      parcelaAtual: 1,
+      totalParcelas: 1,
+    );
+
+    expect(pendente.estaAtrasadoEm(DateTime(2026, 9, 5)), isFalse);
+    expect(pendente.estaAtrasadoEm(DateTime(2026, 9, 6)), isTrue);
+    expect(concluido.estaAtrasadoEm(DateTime(2026, 9, 6)), isFalse);
+  });
 }
