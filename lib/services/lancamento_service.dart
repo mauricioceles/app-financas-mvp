@@ -105,6 +105,7 @@ class LancamentoService {
         forma: lancamento.forma,
         parcelaAtual: item.numero,
         totalParcelas: plano.length,
+        prioridade: lancamento.prioridade,
         grupoId: grupoId,
       );
 
@@ -180,6 +181,7 @@ class LancamentoService {
         forma: FormaLancamento.fixo,
         parcelaAtual: 1,
         totalParcelas: 1,
+        prioridade: prioridadeLancamentoDeNome(dados['prioridade']),
         grupoId: documento.id,
         recorrenciaId: documento.id,
       );
@@ -212,6 +214,7 @@ class LancamentoService {
       'descricao': lancamento.descricao.trim(),
       'valor': valor,
       'tipo': lancamento.tipo.name,
+      'prioridade': lancamento.prioridade.name,
       'diaVencimento': vencimento.day,
       'inicio': Timestamp.fromDate(vencimento),
       'ativa': true,
@@ -231,6 +234,7 @@ class LancamentoService {
       forma: FormaLancamento.fixo,
       parcelaAtual: 1,
       totalParcelas: 1,
+      prioridade: lancamento.prioridade,
       grupoId: recorrenciaReferencia.id,
       recorrenciaId: recorrenciaReferencia.id,
     );
@@ -256,16 +260,58 @@ class LancamentoService {
     required String descricao,
     required double valor,
     required DateTime vencimento,
+    required PrioridadeLancamento prioridade,
   }) async {
     final valorCentavos = (valor * 100).round();
 
     await _colecao.doc(lancamento.id).update({
       'descricao': descricao.trim(),
       'valor': valorCentavos / 100,
+      'prioridade': prioridade.name,
       'vencimento': Timestamp.fromDate(
         DateTime(vencimento.year, vencimento.month, vencimento.day),
       ),
     });
+
+    if (lancamento.tipo == TipoLancamento.despesa &&
+        lancamento.fazParteDeSerie &&
+        lancamento.grupoId != null &&
+        prioridade != lancamento.prioridade) {
+      await _atualizarPrioridadeDaSerie(lancamento, prioridade);
+    }
+  }
+
+  Future<void> _atualizarPrioridadeDaSerie(
+    Lancamento lancamento,
+    PrioridadeLancamento prioridade,
+  ) async {
+    final grupoId = lancamento.grupoId!;
+    final snapshot = await _colecao.where('grupoId', isEqualTo: grupoId).get();
+    const limiteSeguro = 450;
+
+    for (
+      var inicio = 0;
+      inicio < snapshot.docs.length;
+      inicio += limiteSeguro
+    ) {
+      final fim = (inicio + limiteSeguro < snapshot.docs.length)
+          ? inicio + limiteSeguro
+          : snapshot.docs.length;
+      final lote = _firestore.batch();
+
+      for (final documento in snapshot.docs.sublist(inicio, fim)) {
+        lote.update(documento.reference, {'prioridade': prioridade.name});
+      }
+
+      await lote.commit();
+    }
+
+    if (lancamento.forma == FormaLancamento.fixo &&
+        lancamento.recorrenciaId != null) {
+      await _recorrencias.doc(lancamento.recorrenciaId).update({
+        'prioridade': prioridade.name,
+      });
+    }
   }
 
   Future<void> excluir(

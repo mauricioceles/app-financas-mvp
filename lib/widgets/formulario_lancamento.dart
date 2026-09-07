@@ -27,6 +27,7 @@ class _FormularioLancamentoState extends State<FormularioLancamento> {
 
   FormaLancamento _forma = FormaLancamento.vista;
   StatusLancamento _statusAtual = StatusLancamento.pendente;
+  PrioridadeLancamento _prioridade = PrioridadeLancamento.normal;
   DateTime _vencimento = DateTime.now();
   bool _salvando = false;
 
@@ -99,6 +100,9 @@ class _FormularioLancamentoState extends State<FormularioLancamento> {
           forma: _forma,
           parcelaAtual: parcelaAtual,
           totalParcelas: totalParcelas,
+          prioridade: widget.tipoInicial == TipoLancamento.despesa
+              ? _prioridade
+              : PrioridadeLancamento.normal,
         ),
       );
 
@@ -110,7 +114,10 @@ class _FormularioLancamentoState extends State<FormularioLancamento> {
           _valorController.clear();
           _parcelaAtualController.text = '1';
           _parcelasController.text = '2';
-          setState(() => _statusAtual = StatusLancamento.pendente);
+          setState(() {
+            _statusAtual = StatusLancamento.pendente;
+            _prioridade = PrioridadeLancamento.normal;
+          });
           _descricaoFocus.requestFocus();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -220,6 +227,31 @@ class _FormularioLancamentoState extends State<FormularioLancamento> {
                   return null;
                 },
               ),
+              if (!receita) ...[
+                const SizedBox(height: 16),
+                DropdownButtonFormField<PrioridadeLancamento>(
+                  key: ValueKey(_prioridade),
+                  initialValue: _prioridade,
+                  decoration: const InputDecoration(
+                    labelText: 'Prioridade',
+                    helperText: 'Define a ordem de pagamento desta despesa.',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: PrioridadeLancamento.values
+                      .map(
+                        (prioridade) => DropdownMenuItem(
+                          value: prioridade,
+                          child: Text(prioridade.rotulo),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (prioridade) {
+                    if (prioridade != null) {
+                      setState(() => _prioridade = prioridade);
+                    }
+                  },
+                ),
+              ],
               const SizedBox(height: 16),
               DropdownButtonFormField<FormaLancamento>(
                 initialValue: _forma,

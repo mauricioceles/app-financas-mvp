@@ -32,6 +32,7 @@ void main() {
     expect(lancamento.forma, FormaLancamento.parcelado);
     expect(lancamento.parcelaAtual, 2);
     expect(lancamento.totalParcelas, 12);
+    expect(lancamento.prioridade, PrioridadeLancamento.normal);
     expect(lancamento.grupoId, 'grupo-1');
     expect(lancamento.recorrenciaId, isNull);
     expect(lancamento.excluido, isFalse);
@@ -49,11 +50,13 @@ void main() {
       'totalParcelas': 1,
       'grupoId': 'fixo-1',
       'recorrenciaId': 'fixo-1',
+      'prioridade': 'essencial',
       'excluido': true,
     });
 
     expect(lancamento.forma, FormaLancamento.fixo);
     expect(lancamento.status, StatusLancamento.concluido);
+    expect(lancamento.prioridade, PrioridadeLancamento.essencial);
     expect(lancamento.recorrenciaId, 'fixo-1');
     expect(lancamento.excluido, isTrue);
   });
@@ -103,6 +106,91 @@ void main() {
     expect(pendente.estaAtrasadoEm(DateTime(2026, 9, 5)), isFalse);
     expect(pendente.estaAtrasadoEm(DateTime(2026, 9, 6)), isTrue);
     expect(concluido.estaAtrasadoEm(DateTime(2026, 9, 6)), isFalse);
+  });
+
+  test('salva a prioridade no mapa do lançamento', () {
+    final lancamento = Lancamento(
+      id: '1',
+      descricao: 'Internet',
+      valor: 100,
+      tipo: TipoLancamento.despesa,
+      vencimento: DateTime(2026, 9, 10),
+      status: StatusLancamento.pendente,
+      forma: FormaLancamento.vista,
+      parcelaAtual: 1,
+      totalParcelas: 1,
+      prioridade: PrioridadeLancamento.alta,
+    );
+
+    expect(lancamento.toMap()['prioridade'], 'alta');
+  });
+
+  test('ordena pendentes por prioridade e deixa concluídas no final', () {
+    Lancamento criar({
+      required String id,
+      required PrioridadeLancamento prioridade,
+      required StatusLancamento status,
+      required int dia,
+    }) => Lancamento(
+      id: id,
+      descricao: id,
+      valor: 10,
+      tipo: TipoLancamento.despesa,
+      vencimento: DateTime(2026, 9, dia),
+      status: status,
+      forma: FormaLancamento.vista,
+      parcelaAtual: 1,
+      totalParcelas: 1,
+      prioridade: prioridade,
+    );
+
+    final lancamentos = [
+      criar(
+        id: 'paga',
+        prioridade: PrioridadeLancamento.essencial,
+        status: StatusLancamento.concluido,
+        dia: 1,
+      ),
+      criar(
+        id: 'baixa',
+        prioridade: PrioridadeLancamento.baixa,
+        status: StatusLancamento.pendente,
+        dia: 1,
+      ),
+      criar(
+        id: 'normal-dia-10',
+        prioridade: PrioridadeLancamento.normal,
+        status: StatusLancamento.pendente,
+        dia: 10,
+      ),
+      criar(
+        id: 'essencial',
+        prioridade: PrioridadeLancamento.essencial,
+        status: StatusLancamento.pendente,
+        dia: 30,
+      ),
+      criar(
+        id: 'normal-dia-5',
+        prioridade: PrioridadeLancamento.normal,
+        status: StatusLancamento.pendente,
+        dia: 5,
+      ),
+      criar(
+        id: 'alta',
+        prioridade: PrioridadeLancamento.alta,
+        status: StatusLancamento.pendente,
+        dia: 20,
+      ),
+    ]..sort(compararLancamentosMensais);
+
+    expect(lancamentos.map((item) => item.id), [
+      'essencial',
+      'alta',
+      'normal-dia-5',
+      'normal-dia-10',
+      'baixa',
+      'paga',
+    ]);
   });
 
   testWidgets('abre as opções de despesa e receita da área pessoal', (

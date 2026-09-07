@@ -6,7 +6,30 @@ enum StatusLancamento { pendente, concluido }
 
 enum FormaLancamento { vista, parcelado, fixo }
 
+enum PrioridadeLancamento { essencial, alta, normal, baixa }
+
 enum EscopoExclusao { somenteEsta, estaEProximas, todas }
+
+extension PrioridadeLancamentoExtensao on PrioridadeLancamento {
+  String get rotulo => switch (this) {
+    PrioridadeLancamento.essencial => 'Essencial',
+    PrioridadeLancamento.alta => 'Alta',
+    PrioridadeLancamento.normal => 'Normal',
+    PrioridadeLancamento.baixa => 'Baixa',
+  };
+}
+
+PrioridadeLancamento prioridadeLancamentoDeNome(Object? nome) {
+  if (nome is String) {
+    for (final prioridade in PrioridadeLancamento.values) {
+      if (prioridade.name == nome) {
+        return prioridade;
+      }
+    }
+  }
+
+  return PrioridadeLancamento.normal;
+}
 
 class Lancamento {
   const Lancamento({
@@ -19,6 +42,7 @@ class Lancamento {
     required this.forma,
     required this.parcelaAtual,
     required this.totalParcelas,
+    this.prioridade = PrioridadeLancamento.normal,
     this.grupoId,
     this.recorrenciaId,
     this.excluido = false,
@@ -33,6 +57,7 @@ class Lancamento {
   final FormaLancamento forma;
   final int parcelaAtual;
   final int totalParcelas;
+  final PrioridadeLancamento prioridade;
   final String? grupoId;
   final String? recorrenciaId;
   final bool excluido;
@@ -69,6 +94,7 @@ class Lancamento {
       'forma': forma.name,
       'parcelaAtual': parcelaAtual,
       'totalParcelas': totalParcelas,
+      'prioridade': prioridade.name,
       'excluido': excluido,
       if (grupoId != null) 'grupoId': grupoId,
       if (recorrenciaId != null) 'recorrenciaId': recorrenciaId,
@@ -86,9 +112,38 @@ class Lancamento {
       forma: FormaLancamento.values.byName(dados['forma'] as String),
       parcelaAtual: (dados['parcelaAtual'] as num?)?.toInt() ?? 1,
       totalParcelas: (dados['totalParcelas'] as num?)?.toInt() ?? 1,
+      prioridade: prioridadeLancamentoDeNome(dados['prioridade']),
       grupoId: dados['grupoId'] as String?,
       recorrenciaId: dados['recorrenciaId'] as String?,
       excluido: dados['excluido'] == true,
     );
   }
+}
+
+int compararLancamentosMensais(Lancamento primeiro, Lancamento segundo) {
+  if (primeiro.tipo == TipoLancamento.despesa &&
+      segundo.tipo == TipoLancamento.despesa) {
+    final status = primeiro.status.index.compareTo(segundo.status.index);
+    if (status != 0) {
+      return status;
+    }
+
+    if (primeiro.status == StatusLancamento.pendente) {
+      final prioridade = primeiro.prioridade.index.compareTo(
+        segundo.prioridade.index,
+      );
+      if (prioridade != 0) {
+        return prioridade;
+      }
+    }
+  }
+
+  final vencimento = primeiro.vencimento.compareTo(segundo.vencimento);
+  if (vencimento != 0) {
+    return vencimento;
+  }
+
+  return primeiro.descricao.toLowerCase().compareTo(
+    segundo.descricao.toLowerCase(),
+  );
 }

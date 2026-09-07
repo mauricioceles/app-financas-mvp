@@ -24,6 +24,7 @@ class _FormularioEdicaoLancamentoState
   late final TextEditingController _descricaoController;
   late final TextEditingController _valorController;
   late DateTime _vencimento;
+  late PrioridadeLancamento _prioridade;
   bool _salvando = false;
 
   @override
@@ -36,6 +37,7 @@ class _FormularioEdicaoLancamentoState
       text: widget.lancamento.valor.toStringAsFixed(2).replaceAll('.', ','),
     );
     _vencimento = widget.lancamento.vencimento;
+    _prioridade = widget.lancamento.prioridade;
   }
 
   @override
@@ -109,6 +111,7 @@ class _FormularioEdicaoLancamentoState
         descricao: _descricaoController.text,
         valor: _converterValor(_valorController.text)!,
         vencimento: _vencimento,
+        prioridade: _prioridade,
       );
 
       if (mounted) {
@@ -171,6 +174,32 @@ class _FormularioEdicaoLancamentoState
                     return null;
                   },
                 ),
+                if (widget.lancamento.tipo == TipoLancamento.despesa) ...[
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<PrioridadeLancamento>(
+                    initialValue: _prioridade,
+                    decoration: InputDecoration(
+                      labelText: 'Prioridade',
+                      helperText: widget.lancamento.fazParteDeSerie
+                          ? 'A nova prioridade será aplicada a toda a série.'
+                          : 'Define a ordem de pagamento desta despesa.',
+                      border: const OutlineInputBorder(),
+                    ),
+                    items: PrioridadeLancamento.values
+                        .map(
+                          (prioridade) => DropdownMenuItem(
+                            value: prioridade,
+                            child: Text(prioridade.rotulo),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (prioridade) {
+                      if (prioridade != null) {
+                        setState(() => _prioridade = prioridade);
+                      }
+                    },
+                  ),
+                ],
                 const SizedBox(height: 16),
                 OutlinedButton.icon(
                   onPressed: _salvando ? null : _selecionarData,

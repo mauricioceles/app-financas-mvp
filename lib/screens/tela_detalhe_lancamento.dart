@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import '../models/lancamento.dart';
 import '../services/lancamento_service.dart';
 import '../widgets/formulario_edicao_lancamento.dart';
+import '../widgets/indicador_prioridade.dart';
+import '../widgets/indicador_situacao.dart';
 
 class TelaDetalheLancamento extends StatelessWidget {
   TelaDetalheLancamento({
@@ -205,11 +207,8 @@ class TelaDetalheLancamento extends StatelessWidget {
 
     final concluido = lancamento.status == StatusLancamento.concluido;
     final receita = lancamento.tipo == TipoLancamento.receita;
-    final status = concluido
-        ? (receita ? 'Recebido' : 'Pago')
-        : lancamento.estaAtrasadoEm(DateTime.now())
-        ? 'Atrasado'
-        : 'Pendente';
+    final referencia = DateTime.now();
+    final status = rotuloDaSituacao(lancamento, referencia);
 
     return SafeArea(
       child: ListView(
@@ -236,7 +235,15 @@ class TelaDetalheLancamento extends StatelessWidget {
                 : Icons.schedule_outlined,
             titulo: 'Situação',
             valor: status,
+            cor: corDaSituacao(lancamento, referencia),
           ),
+          if (!receita)
+            _LinhaDetalhe(
+              icone: Icons.flag_outlined,
+              titulo: 'Prioridade',
+              valor: lancamento.prioridade.rotulo,
+              cor: corDaPrioridade(lancamento.prioridade),
+            ),
           if (lancamento.forma == FormaLancamento.fixo)
             const _LinhaDetalhe(
               icone: Icons.autorenew,
@@ -277,19 +284,27 @@ class _LinhaDetalhe extends StatelessWidget {
     required this.icone,
     required this.titulo,
     required this.valor,
+    this.cor,
   });
 
   final IconData icone;
   final String titulo;
   final String valor;
+  final Color? cor;
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: Icon(icone),
+      leading: Icon(icone, color: cor),
       title: Text(titulo),
-      subtitle: Text(valor, style: Theme.of(context).textTheme.titleMedium),
+      subtitle: Text(
+        valor,
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+          color: cor,
+          fontWeight: cor == null ? null : FontWeight.w700,
+        ),
+      ),
     );
   }
 }

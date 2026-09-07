@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models/lancamento.dart';
+import '../models/resumo_prioridade.dart';
 import '../services/lancamento_service.dart';
 import '../widgets/formulario_lancamento.dart';
+import '../widgets/indicador_prioridade.dart';
+import '../widgets/indicador_situacao.dart';
 import 'tela_detalhe_lancamento.dart';
 
 class TelaPrincipal extends StatefulWidget {
@@ -118,6 +121,7 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
               _pertenceAoMes(item),
         )
         .toList();
+    lancamentos.sort(compararLancamentosMensais);
 
     if (lancamentos.isEmpty) {
       final nome = widget.tipo == TipoLancamento.receita
@@ -132,87 +136,149 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
       );
     }
 
+    final itens = widget.tipo == TipoLancamento.despesa
+        ? _construirItensDeDespesas(lancamentos)
+        : lancamentos.map(_construirCard).toList();
+
     return ListView.separated(
       padding: const EdgeInsets.all(12),
-      itemCount: lancamentos.length,
+      itemCount: itens.length,
       separatorBuilder: (_, _) => const SizedBox(height: 6),
-      itemBuilder: (context, index) {
-        final lancamento = lancamentos[index];
-        final receita = lancamento.tipo == TipoLancamento.receita;
-        final concluido = lancamento.status == StatusLancamento.concluido;
-        final atrasado = lancamento.estaAtrasadoEm(DateTime.now());
-        final corDoCard = concluido
-            ? const Color(0xFFE0F2E9)
-            : atrasado
-            ? const Color(0xFFFFE2E0)
-            : null;
+      itemBuilder: (context, index) => itens[index],
+    );
+  }
 
-        final parcela =
-            lancamento.forma == FormaLancamento.parcelado &&
-                lancamento.totalParcelas > 1
-            ? 'Parcela ${lancamento.parcelaAtual}/'
-                  '${lancamento.totalParcelas} • '
-            : '';
-        final recorrencia = lancamento.forma == FormaLancamento.fixo
-            ? 'Conta fixa • '
-            : '';
+  List<Widget> _construirItensDeDespesas(List<Lancamento> lancamentos) {
+    final itens = <Widget>[];
 
-        return Card(
-          color: corDoCard,
-          child: ListTile(
-            onTap: () => _abrirDetalhes(lancamento),
-            leading: CircleAvatar(
-              backgroundColor: receita ? Colors.green : Colors.red,
-              child: Icon(
-                receita ? Icons.arrow_upward : Icons.arrow_downward,
-                color: Colors.white,
-              ),
-            ),
-            title: Text(
-              lancamento.descricao,
-              style: TextStyle(
-                decoration: concluido
-                    ? TextDecoration.lineThrough
-                    : TextDecoration.none,
-              ),
-            ),
-            subtitle: Text(
-              '$parcela$recorrencia'
-              'Vencimento: ${_data.format(lancamento.vencimento)}\n'
-              '${concluido
-                  ? (receita ? "Recebido" : "Pago")
-                  : atrasado
-                  ? "Atrasado"
-                  : "Pendente"}',
-            ),
-            isThreeLine: true,
-            trailing: SizedBox(
-              width: 115,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    _moeda.format(lancamento.valor),
-                    style: TextStyle(
-                      color: receita ? Colors.green : Colors.red,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Icon(
-                    concluido
-                        ? Icons.check_circle
-                        : Icons.radio_button_unchecked,
-                    color: concluido ? Colors.teal : Colors.grey,
-                    size: 20,
-                  ),
-                ],
-              ),
-            ),
+    for (final prioridade in PrioridadeLancamento.values) {
+      final grupo =
+          lancamentos.where((item) => item.prioridade == prioridade).toList()
+            ..sort((primeiro, segundo) {
+              final vencimento = primeiro.vencimento.compareTo(
+                segundo.vencimento,
+              );
+              if (vencimento != 0) {
+                return vencimento;
+              }
+              return primeiro.descricao.toLowerCase().compareTo(
+                segundo.descricao.toLowerCase(),
+              );
+            });
+
+      if (grupo.isEmpty) {
+        continue;
+      }
+
+      final resumo = ResumoPrioridade.calcular(grupo);
+      itens.add(
+        _CabecalhoGrupo(
+          titulo: prioridade.rotulo.toUpperCase(),
+          quantidade: resumo.quantidade,
+          restanteAPagar: _moeda.format(resumo.restanteAPagar),
+          totalPago: _moeda.format(resumo.totalPago),
+          totalGeral: _moeda.format(resumo.totalGeral),
+          cor: corDaPrioridade(prioridade),
+          icone: Icons.flag_outlined,
+        ),
+      );
+      itens.addAll(grupo.map(_construirCard));
+    }
+
+    return itens;
+  }
+
+  Widget _construirCard(Lancamento lancamento) {
+    final referencia = DateTime.now();
+    final receita = lancamento.tipo == TipoLancamento.receita;
+    final concluido = lancamento.status == StatusLancamento.concluido;
+    final atrasado = lancamento.estaAtrasadoEm(referencia);
+    final corDoCard = corDeFundoDaSituacao(lancamento, referencia);
+    final corSituacao = corDaSituacao(lancamento, referencia);
+
+    final parcela =
+        lancamento.forma == FormaLancamento.parcelado &&
+            lancamento.totalParcelas > 1
+        ? 'Parcela ${lancamento.parcelaAtual}/'
+              '${lancamento.totalParcelas} • '
+        : '';
+    final recorrencia = lancamento.forma == FormaLancamento.fixo
+        ? 'Conta fixa • '
+        : '';
+
+    return Card(
+      color: corDoCard,
+      child: ListTile(
+        onTap: () => _abrirDetalhes(lancamento),
+        leading: CircleAvatar(
+          backgroundColor: receita ? Colors.green : corSituacao,
+          child: Icon(
+            receita ? Icons.arrow_upward : Icons.arrow_downward,
+            color: Colors.white,
           ),
-        );
-      },
+        ),
+        title: Text(
+          lancamento.descricao,
+          style: TextStyle(
+            decoration: concluido
+                ? TextDecoration.lineThrough
+                : TextDecoration.none,
+          ),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '$parcela$recorrencia'
+              'Vencimento: ${_data.format(lancamento.vencimento)}',
+            ),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (!receita)
+                  IndicadorPrioridade(
+                    prioridade: lancamento.prioridade,
+                    compacto: true,
+                  ),
+                IndicadorSituacao(
+                  lancamento: lancamento,
+                  referencia: referencia,
+                ),
+              ],
+            ),
+          ],
+        ),
+        isThreeLine: true,
+        trailing: SizedBox(
+          width: 115,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                _moeda.format(lancamento.valor),
+                style: TextStyle(
+                  color: receita ? Colors.green : Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Icon(
+                concluido
+                    ? Icons.check_circle
+                    : atrasado
+                    ? Icons.warning_amber_rounded
+                    : Icons.schedule,
+                color: corSituacao,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -323,6 +389,124 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
         onPressed: _abrirFormulario,
         icon: const Icon(Icons.add),
         label: Text(receita ? 'Adicionar receita' : 'Adicionar despesa'),
+      ),
+    );
+  }
+}
+
+class _CabecalhoGrupo extends StatelessWidget {
+  const _CabecalhoGrupo({
+    required this.titulo,
+    required this.quantidade,
+    required this.restanteAPagar,
+    required this.totalPago,
+    required this.totalGeral,
+    required this.cor,
+    required this.icone,
+  });
+
+  final String titulo;
+  final int quantidade;
+  final String restanteAPagar;
+  final String totalPago;
+  final String totalGeral;
+  final Color cor;
+  final IconData icone;
+
+  @override
+  Widget build(BuildContext context) {
+    final quantidadeDeContas = quantidade == 1
+        ? '1 conta'
+        : '$quantidade contas';
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: cor.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: cor,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              const SizedBox(width: 9),
+              Icon(icone, color: cor, size: 21),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      titulo,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: cor,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$quantidadeDeContas • ordem de vencimento',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 18),
+          _LinhaSubtotal(
+            rotulo: 'Restante a pagar',
+            valor: restanteAPagar,
+            cor: const Color(0xFFF57F17),
+          ),
+          _LinhaSubtotal(
+            rotulo: 'Total pago',
+            valor: totalPago,
+            cor: const Color(0xFF00897B),
+          ),
+          _LinhaSubtotal(rotulo: 'Total geral', valor: totalGeral, cor: cor),
+        ],
+      ),
+    );
+  }
+}
+
+class _LinhaSubtotal extends StatelessWidget {
+  const _LinhaSubtotal({
+    required this.rotulo,
+    required this.valor,
+    required this.cor,
+  });
+
+  final String rotulo;
+  final String valor;
+  final Color cor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(child: Text(rotulo)),
+          const SizedBox(width: 12),
+          Text(
+            valor,
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(color: cor, fontWeight: FontWeight.w700),
+          ),
+        ],
       ),
     );
   }
