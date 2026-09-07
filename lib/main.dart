@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'firebase_options.dart';
+import 'screens/tela_inicio.dart';
 import 'screens/tela_login.dart';
-import 'screens/tela_principal.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -187,7 +187,7 @@ class _PortaoDeAutenticacaoState extends State<_PortaoDeAutenticacao> {
         final usuario = snapshot.data;
 
         if (usuario != null && (!usuario.isAnonymous || _continuarSemConta)) {
-          return const TelaPrincipal();
+          return const TelaInicio();
         }
 
         return TelaLogin(onContinuarSemConta: _usarContaTemporaria);

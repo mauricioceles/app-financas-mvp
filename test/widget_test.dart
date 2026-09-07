@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:app_financas_mvp/models/lancamento.dart';
+import 'package:app_financas_mvp/screens/tela_inicio.dart';
 
 void main() {
   test('converte os dados do Firestore em lançamento', () {
@@ -101,5 +103,29 @@ void main() {
     expect(pendente.estaAtrasadoEm(DateTime(2026, 9, 5)), isFalse);
     expect(pendente.estaAtrasadoEm(DateTime(2026, 9, 6)), isTrue);
     expect(concluido.estaAtrasadoEm(DateTime(2026, 9, 6)), isFalse);
+  });
+
+  testWidgets('abre as opções de despesa e receita da área pessoal', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: TelaInicio()));
+
+    expect(find.text('PESSOAL'), findsOneWidget);
+    expect(find.text('PROFISSIONAL'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('botao-pessoal')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('DESPESA'), findsOneWidget);
+    expect(find.text('RECEITA'), findsOneWidget);
+  });
+
+  testWidgets('abre a área profissional provisória', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: TelaInicio()));
+
+    await tester.tap(find.byKey(const Key('botao-profissional')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Área profissional em construção'), findsOneWidget);
   });
 }

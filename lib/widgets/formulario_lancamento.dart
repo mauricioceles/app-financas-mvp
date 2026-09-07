@@ -24,16 +24,9 @@ class _FormularioLancamentoState extends State<FormularioLancamento> {
   final _parcelasController = TextEditingController(text: '2');
   final _descricaoFocus = FocusNode();
 
-  late TipoLancamento _tipo;
   FormaLancamento _forma = FormaLancamento.vista;
   DateTime _vencimento = DateTime.now();
   bool _salvando = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _tipo = widget.tipoInicial;
-  }
 
   @override
   void dispose() {
@@ -92,7 +85,7 @@ class _FormularioLancamentoState extends State<FormularioLancamento> {
           id: '',
           descricao: _descricaoController.text,
           valor: valor,
-          tipo: _tipo,
+          tipo: widget.tipoInicial,
           vencimento: _vencimento,
           status: StatusLancamento.pendente,
           forma: _forma,
@@ -130,6 +123,8 @@ class _FormularioLancamentoState extends State<FormularioLancamento> {
 
   @override
   Widget build(BuildContext context) {
+    final receita = widget.tipoInicial == TipoLancamento.receita;
+
     return SafeArea(
       child: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(
@@ -144,32 +139,28 @@ class _FormularioLancamentoState extends State<FormularioLancamento> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Novo lançamento',
+                receita ? 'Nova receita' : 'Nova despesa',
                 style: Theme.of(context).textTheme.headlineSmall,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
-              DropdownButtonFormField<TipoLancamento>(
-                initialValue: _tipo,
+              InputDecorator(
                 decoration: const InputDecoration(
-                  labelText: 'Tipo',
+                  labelText: 'Área pessoal',
                   border: OutlineInputBorder(),
                 ),
-                items: const [
-                  DropdownMenuItem(
-                    value: TipoLancamento.receita,
-                    child: Text('Receita'),
-                  ),
-                  DropdownMenuItem(
-                    value: TipoLancamento.despesa,
-                    child: Text('Despesa'),
-                  ),
-                ],
-                onChanged: (tipo) {
-                  if (tipo != null) {
-                    setState(() => _tipo = tipo);
-                  }
-                },
+                child: Row(
+                  children: [
+                    Icon(
+                      receita
+                          ? Icons.arrow_upward_rounded
+                          : Icons.arrow_downward_rounded,
+                      color: receita ? Colors.green : Colors.red,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(receita ? 'Receita' : 'Despesa'),
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
               TextFormField(

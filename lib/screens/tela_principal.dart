@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -8,17 +7,16 @@ import '../widgets/formulario_lancamento.dart';
 import 'tela_detalhe_lancamento.dart';
 
 class TelaPrincipal extends StatefulWidget {
-  const TelaPrincipal({super.key});
+  const TelaPrincipal({super.key, required this.tipo});
+
+  final TipoLancamento tipo;
 
   @override
   State<TelaPrincipal> createState() => _TelaPrincipalState();
 }
 
-class _TelaPrincipalState extends State<TelaPrincipal>
-    with SingleTickerProviderStateMixin {
+class _TelaPrincipalState extends State<TelaPrincipal> {
   final LancamentoService _servico = LancamentoService();
-
-  late final TabController _tabController;
 
   final NumberFormat _moeda = NumberFormat.currency(
     locale: 'pt_BR',
@@ -33,7 +31,6 @@ class _TelaPrincipalState extends State<TelaPrincipal>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     final agora = DateTime.now();
     _mesSelecionado = DateTime(agora.year, agora.month);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -81,22 +78,15 @@ class _TelaPrincipalState extends State<TelaPrincipal>
     return '${texto[0].toUpperCase()}${texto.substring(1)}';
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
   Future<void> _abrirFormulario() async {
-    final tipo = _tabController.index == 0
-        ? TipoLancamento.receita
-        : TipoLancamento.despesa;
-
     final salvou = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       builder: (context) {
-        return FormularioLancamento(servico: _servico, tipoInicial: tipo);
+        return FormularioLancamento(
+          servico: _servico,
+          tipoInicial: widget.tipo,
+        );
       },
     );
 
@@ -119,43 +109,18 @@ class _TelaPrincipalState extends State<TelaPrincipal>
     );
   }
 
-  Future<void> _sair() async {
-    final confirmou = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Sair da conta?'),
-          content: const Text(
-            'Você poderá entrar novamente usando a mesma conta Google.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Sair'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmou == true) {
-      await FirebaseAuth.instance.signOut();
-    }
-  }
-
-  Widget _construirLista(List<Lancamento> todos, TipoLancamento tipo) {
+  Widget _construirLista(List<Lancamento> todos) {
     final lancamentos = todos
         .where(
-          (item) => item.tipo == tipo && !item.excluido && _pertenceAoMes(item),
+          (item) =>
+              item.tipo == widget.tipo &&
+              !item.excluido &&
+              _pertenceAoMes(item),
         )
         .toList();
 
     if (lancamentos.isEmpty) {
-      final nome = tipo == TipoLancamento.receita
+      final nome = widget.tipo == TipoLancamento.receita
           ? 'conta a receber'
           : 'conta a pagar';
 
@@ -290,15 +255,17 @@ class _TelaPrincipalState extends State<TelaPrincipal>
 
   Widget _construirResumo(List<Lancamento> todos) {
     final lancamentosDoMes = todos.where(
-      (item) => !item.excluido && _pertenceAoMes(item),
+      (item) =>
+          item.tipo == widget.tipo && !item.excluido && _pertenceAoMes(item),
     );
-    final receitas = lancamentosDoMes
-        .where((item) => item.tipo == TipoLancamento.receita)
-        .fold<double>(0, (total, item) => total + item.valor);
-    final despesas = lancamentosDoMes
-        .where((item) => item.tipo == TipoLancamento.despesa)
-        .fold<double>(0, (total, item) => total + item.valor);
-    final saldo = receitas - despesas;
+    final total = lancamentosDoMes.fold<double>(
+      0,
+      (soma, item) => soma + item.valor,
+    );
+    final saldoPendente = lancamentosDoMes
+        .where((item) => item.status == StatusLancamento.pendente)
+        .fold<double>(0, (soma, item) => soma + item.valor);
+    final receita = widget.tipo == TipoLancamento.receita;
 
     return Card(
       margin: const EdgeInsets.fromLTRB(12, 8, 12, 8),
@@ -307,19 +274,14 @@ class _TelaPrincipalState extends State<TelaPrincipal>
         child: Row(
           children: [
             _ItemResumo(
-              titulo: 'Receitas',
-              valor: _moeda.format(receitas),
-              cor: Colors.green,
+              titulo: receita ? 'Total a receber' : 'Total a pagar',
+              valor: _moeda.format(total),
+              cor: receita ? Colors.green : Colors.red,
             ),
             _ItemResumo(
-              titulo: 'Despesas',
-              valor: _moeda.format(despesas),
-              cor: Colors.red,
-            ),
-            _ItemResumo(
-              titulo: 'Saldo previsto',
-              valor: _moeda.format(saldo),
-              cor: saldo >= 0 ? Colors.teal : Colors.red,
+              titulo: receita ? 'Saldo a receber' : 'Saldo a pagar',
+              valor: _moeda.format(saldoPendente),
+              cor: receita ? Colors.green : Colors.red,
             ),
           ],
         ),
@@ -329,23 +291,11 @@ class _TelaPrincipalState extends State<TelaPrincipal>
 
   @override
   Widget build(BuildContext context) {
+    final receita = widget.tipo == TipoLancamento.receita;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Controle Financeiro'),
-        actions: [
-          IconButton(
-            tooltip: 'Sair da conta',
-            onPressed: _sair,
-            icon: const Icon(Icons.logout),
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(icon: Icon(Icons.arrow_upward), text: 'Contas a receber'),
-            Tab(icon: Icon(Icons.arrow_downward), text: 'Contas a pagar'),
-          ],
-        ),
+        title: Text(receita ? 'Receitas pessoais' : 'Despesas pessoais'),
       ),
       body: StreamBuilder<List<Lancamento>>(
         stream: _servico.observarLancamentosDoMes(_mesSelecionado),
@@ -364,15 +314,7 @@ class _TelaPrincipalState extends State<TelaPrincipal>
             children: [
               _construirSeletorDeMes(),
               _construirResumo(snapshot.data!),
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _construirLista(snapshot.data!, TipoLancamento.receita),
-                    _construirLista(snapshot.data!, TipoLancamento.despesa),
-                  ],
-                ),
-              ),
+              Expanded(child: _construirLista(snapshot.data!)),
             ],
           );
         },
@@ -380,7 +322,7 @@ class _TelaPrincipalState extends State<TelaPrincipal>
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _abrirFormulario,
         icon: const Icon(Icons.add),
-        label: const Text('Adicionar'),
+        label: Text(receita ? 'Adicionar receita' : 'Adicionar despesa'),
       ),
     );
   }
