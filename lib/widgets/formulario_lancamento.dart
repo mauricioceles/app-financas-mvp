@@ -21,10 +21,12 @@ class _FormularioLancamentoState extends State<FormularioLancamento> {
   final _formKey = GlobalKey<FormState>();
   final _descricaoController = TextEditingController();
   final _valorController = TextEditingController();
+  final _parcelaAtualController = TextEditingController(text: '1');
   final _parcelasController = TextEditingController(text: '2');
   final _descricaoFocus = FocusNode();
 
   FormaLancamento _forma = FormaLancamento.vista;
+  StatusLancamento _statusAtual = StatusLancamento.pendente;
   DateTime _vencimento = DateTime.now();
   bool _salvando = false;
 
@@ -32,6 +34,7 @@ class _FormularioLancamentoState extends State<FormularioLancamento> {
   void dispose() {
     _descricaoController.dispose();
     _valorController.dispose();
+    _parcelaAtualController.dispose();
     _parcelasController.dispose();
     _descricaoFocus.dispose();
     super.dispose();
@@ -76,6 +79,9 @@ class _FormularioLancamentoState extends State<FormularioLancamento> {
     final totalParcelas = _forma == FormaLancamento.parcelado
         ? int.parse(_parcelasController.text)
         : 1;
+    final parcelaAtual = _forma == FormaLancamento.parcelado
+        ? int.parse(_parcelaAtualController.text)
+        : 1;
 
     setState(() => _salvando = true);
 
@@ -87,9 +93,11 @@ class _FormularioLancamentoState extends State<FormularioLancamento> {
           valor: valor,
           tipo: widget.tipoInicial,
           vencimento: _vencimento,
-          status: StatusLancamento.pendente,
+          status: _forma == FormaLancamento.parcelado
+              ? _statusAtual
+              : StatusLancamento.pendente,
           forma: _forma,
-          parcelaAtual: 1,
+          parcelaAtual: parcelaAtual,
           totalParcelas: totalParcelas,
         ),
       );
@@ -100,6 +108,9 @@ class _FormularioLancamentoState extends State<FormularioLancamento> {
         } else {
           _descricaoController.clear();
           _valorController.clear();
+          _parcelaAtualController.text = '1';
+          _parcelasController.text = '2';
+          setState(() => _statusAtual = StatusLancamento.pendente);
           _descricaoFocus.requestFocus();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -124,6 +135,8 @@ class _FormularioLancamentoState extends State<FormularioLancamento> {
   @override
   Widget build(BuildContext context) {
     final receita = widget.tipoInicial == TipoLancamento.receita;
+    final parcelaAtualInformada =
+        int.tryParse(_parcelaAtualController.text) ?? 1;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -237,10 +250,38 @@ class _FormularioLancamentoState extends State<FormularioLancamento> {
               if (_forma == FormaLancamento.parcelado) ...[
                 const SizedBox(height: 16),
                 TextFormField(
+                  controller: _parcelaAtualController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Parcela atual',
+                    helperText: 'Use 1 quando o parcelamento for novo.',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (_) => setState(() {}),
+                  validator: (texto) {
+                    if (_forma != FormaLancamento.parcelado) {
+                      return null;
+                    }
+
+                    final parcelaAtual = int.tryParse(texto ?? '');
+                    final totalParcelas = int.tryParse(
+                      _parcelasController.text,
+                    );
+                    if (parcelaAtual == null || parcelaAtual < 1) {
+                      return 'Informe uma parcela atual válida.';
+                    }
+                    if (totalParcelas != null && parcelaAtual > totalParcelas) {
+                      return 'A parcela atual não pode superar o total.';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
                   controller: _parcelasController,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
-                    labelText: 'Quantidade de parcelas',
+                    labelText: 'Total de parcelas',
                     border: OutlineInputBorder(),
                   ),
                   validator: (texto) {
@@ -255,13 +296,46 @@ class _FormularioLancamentoState extends State<FormularioLancamento> {
                     return null;
                   },
                 ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<StatusLancamento>(
+                  key: ValueKey(_statusAtual),
+                  initialValue: _statusAtual,
+                  decoration: InputDecoration(
+                    labelText: 'Situação da parcela atual',
+                    border: const OutlineInputBorder(),
+                    helperText: parcelaAtualInformada > 1
+                        ? receita
+                              ? 'As anteriores serão marcadas como recebidas.'
+                              : 'As anteriores serão marcadas como pagas.'
+                        : 'As parcelas futuras serão criadas como pendentes.',
+                  ),
+                  items: [
+                    const DropdownMenuItem(
+                      value: StatusLancamento.pendente,
+                      child: Text('Pendente'),
+                    ),
+                    DropdownMenuItem(
+                      value: StatusLancamento.concluido,
+                      child: Text(receita ? 'Recebida' : 'Paga'),
+                    ),
+                  ],
+                  onChanged: (status) {
+                    if (status != null) {
+                      setState(() => _statusAtual = status);
+                    }
+                  },
+                ),
               ],
               const SizedBox(height: 16),
               OutlinedButton.icon(
                 onPressed: _selecionarData,
                 icon: const Icon(Icons.calendar_month),
                 label: Text(
-                  '${_forma == FormaLancamento.vista ? "Vencimento" : "Primeiro vencimento"}: '
+                  '${switch (_forma) {
+                    FormaLancamento.vista => "Vencimento",
+                    FormaLancamento.parcelado => "Vencimento da parcela atual",
+                    FormaLancamento.fixo => "Primeiro vencimento",
+                  }}: '
                   '${_formatarData(_vencimento)}',
                 ),
               ),

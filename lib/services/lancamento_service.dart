@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/lancamento.dart';
+import '../models/plano_parcelamento.dart';
 
 class LancamentoService {
   LancamentoService({FirebaseFirestore? firestore, FirebaseAuth? auth})
@@ -71,21 +72,27 @@ class LancamentoService {
       return;
     }
 
-    final quantidade = lancamento.forma == FormaLancamento.parcelado
-        ? lancamento.totalParcelas
-        : 1;
-
-    if (quantidade < 1 || quantidade > 120) {
-      throw ArgumentError('A quantidade de parcelas deve estar entre 1 e 120.');
-    }
-
     final lote = _firestore.batch();
     final grupoId = _colecao.doc().id;
     final valorParcelaCentavos = (lancamento.valor * 100).round();
     final valorParcela = valorParcelaCentavos / 100;
-    final valorTotal = valorParcelaCentavos * quantidade / 100;
+    final plano = lancamento.forma == FormaLancamento.parcelado
+        ? PlanoParcelamento.gerar(
+            parcelaAtual: lancamento.parcelaAtual,
+            totalParcelas: lancamento.totalParcelas,
+            vencimentoAtual: lancamento.vencimento,
+            statusAtual: lancamento.status,
+          )
+        : <ParcelaPlanejada>[
+            ParcelaPlanejada(
+              numero: 1,
+              vencimento: lancamento.vencimento,
+              status: lancamento.status,
+            ),
+          ];
+    final valorTotal = valorParcelaCentavos * plano.length / 100;
 
-    for (var indice = 0; indice < quantidade; indice++) {
+    for (final item in plano) {
       final referencia = _colecao.doc();
 
       final parcela = Lancamento(
@@ -93,11 +100,11 @@ class LancamentoService {
         descricao: lancamento.descricao,
         valor: valorParcela,
         tipo: lancamento.tipo,
-        vencimento: _adicionarMeses(lancamento.vencimento, indice),
-        status: StatusLancamento.pendente,
+        vencimento: item.vencimento,
+        status: item.status,
         forma: lancamento.forma,
-        parcelaAtual: indice + 1,
-        totalParcelas: quantidade,
+        parcelaAtual: item.numero,
+        totalParcelas: plano.length,
         grupoId: grupoId,
       );
 
@@ -379,15 +386,5 @@ class LancamentoService {
   String _idOcorrencia(String recorrenciaId, DateTime mes) {
     final numeroMes = mes.month.toString().padLeft(2, '0');
     return '${recorrenciaId}_${mes.year}$numeroMes';
-  }
-
-  DateTime _adicionarMeses(DateTime data, int quantidade) {
-    final totalMeses = data.year * 12 + data.month - 1 + quantidade;
-    final ano = totalMeses ~/ 12;
-    final mes = totalMeses % 12 + 1;
-    final ultimoDia = DateTime(ano, mes + 1, 0).day;
-    final dia = data.day > ultimoDia ? ultimoDia : data.day;
-
-    return DateTime(ano, mes, dia);
   }
 }
