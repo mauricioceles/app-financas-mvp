@@ -84,8 +84,14 @@ class _FormularioEdicaoLancamentoState
     final confirmou = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Editar parcela'),
-        content: const Text('Confirma a edição desta parcela?'),
+        title: Text(
+          widget.lancamento.ehEntrada ? 'Editar entrada' : 'Editar parcela',
+        ),
+        content: Text(
+          widget.lancamento.ehEntrada
+              ? 'Confirma a edição desta entrada?'
+              : 'Confirma a edição desta parcela?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -133,7 +139,11 @@ class _FormularioEdicaoLancamentoState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Editar parcela')),
+      appBar: AppBar(
+        title: Text(
+          widget.lancamento.ehEntrada ? 'Editar entrada' : 'Editar parcela',
+        ),
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -161,10 +171,12 @@ class _FormularioEdicaoLancamentoState
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
-                  decoration: const InputDecoration(
-                    labelText: 'Valor desta parcela',
+                  decoration: InputDecoration(
+                    labelText: widget.lancamento.ehEntrada
+                        ? 'Valor da entrada'
+                        : 'Valor desta parcela',
                     prefixText: 'R\$ ',
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
                   ),
                   validator: (texto) {
                     final valor = _converterValor(texto ?? '');
@@ -204,7 +216,10 @@ class _FormularioEdicaoLancamentoState
                 OutlinedButton.icon(
                   onPressed: _salvando ? null : _selecionarData,
                   icon: const Icon(Icons.calendar_month),
-                  label: Text('Vencimento: ${_formatarData(_vencimento)}'),
+                  label: Text(
+                    '${widget.lancamento.ehEntrada ? "Data da entrada" : "Vencimento"}: '
+                    '${_formatarData(_vencimento)}',
+                  ),
                 ),
                 const SizedBox(height: 24),
                 FilledButton.icon(

@@ -36,7 +36,7 @@ class TelaDetalheLancamento extends StatelessWidget {
 
     if (editou == true && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Parcela atualizada com sucesso.')),
+        const SnackBar(content: Text('Lançamento atualizado com sucesso.')),
       );
     }
   }
@@ -67,29 +67,28 @@ class TelaDetalheLancamento extends StatelessWidget {
     return showDialog<EscopoExclusao>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Excluir parcela'),
+        title: const Text('Excluir lançamento'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
-              'Esta parcela é parte de uma despesa recorrente. '
-              'Quais deseja excluir?',
+              'Este lançamento faz parte de uma série. Quais deseja excluir?',
             ),
             const SizedBox(height: 16),
             OutlinedButton(
               onPressed: () =>
                   Navigator.pop(context, EscopoExclusao.somenteEsta),
-              child: const Text('Somente esta'),
+              child: const Text('Somente este'),
             ),
             OutlinedButton(
               onPressed: () =>
                   Navigator.pop(context, EscopoExclusao.estaEProximas),
-              child: const Text('Esta e próximas'),
+              child: const Text('Este e próximos'),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, EscopoExclusao.todas),
-              child: const Text('Todas'),
+              child: const Text('Toda a série'),
             ),
           ],
         ),
@@ -109,8 +108,8 @@ class TelaDetalheLancamento extends StatelessWidget {
     final confirmou = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Excluir parcela'),
-        content: const Text('Confirma a exclusão desta parcela?'),
+        title: const Text('Excluir lançamento'),
+        content: const Text('Confirma a exclusão deste lançamento?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -151,6 +150,13 @@ class TelaDetalheLancamento extends StatelessWidget {
   }
 
   String _descricaoExibicao(Lancamento lancamento) {
+    if (lancamento.ehEntrada) {
+      return '${lancamento.descricao} - Entrada';
+    }
+    if (lancamento.forma == FormaLancamento.entradaParcelas) {
+      return '${lancamento.descricao} - Parcela '
+          '${lancamento.parcelaAtual} / ${lancamento.totalParcelas}';
+    }
     if (lancamento.forma == FormaLancamento.parcelado &&
         lancamento.totalParcelas > 1) {
       return '${lancamento.descricao} - ${lancamento.parcelaAtual} / '
@@ -249,6 +255,15 @@ class TelaDetalheLancamento extends StatelessWidget {
               icone: Icons.autorenew,
               titulo: 'Repetição',
               valor: 'Fixa mensal',
+            ),
+          if (lancamento.forma == FormaLancamento.entradaParcelas)
+            _LinhaDetalhe(
+              icone: Icons.account_balance_wallet_outlined,
+              titulo: 'Parte da série',
+              valor: lancamento.ehEntrada
+                  ? 'Entrada'
+                  : 'Parcela ${lancamento.parcelaAtual} de '
+                        '${lancamento.totalParcelas}',
             ),
           const SizedBox(height: 32),
           FilledButton.icon(

@@ -196,84 +196,96 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
     final corDoCard = corDeFundoDaSituacao(lancamento, referencia);
     final corSituacao = corDaSituacao(lancamento, referencia);
 
-    final parcela =
-        lancamento.forma == FormaLancamento.parcelado &&
-            lancamento.totalParcelas > 1
+    final parcela = lancamento.ehEntrada
+        ? 'Entrada • '
+        : (lancamento.forma == FormaLancamento.parcelado &&
+                  lancamento.totalParcelas > 1) ||
+              lancamento.forma == FormaLancamento.entradaParcelas
         ? 'Parcela ${lancamento.parcelaAtual}/'
               '${lancamento.totalParcelas} • '
         : '';
     final recorrencia = lancamento.forma == FormaLancamento.fixo
         ? 'Conta fixa • '
         : '';
+    final rotuloData = receita ? 'Recebimento' : 'Vencimento';
 
     return Card(
       color: corDoCard,
-      child: ListTile(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
         onTap: () => _abrirDetalhes(lancamento),
-        leading: CircleAvatar(
-          backgroundColor: receita ? Colors.green : corSituacao,
-          child: Icon(
-            receita ? Icons.arrow_upward : Icons.arrow_downward,
-            color: Colors.white,
-          ),
-        ),
-        title: Text(
-          lancamento.descricao,
-          style: TextStyle(
-            decoration: concluido
-                ? TextDecoration.lineThrough
-                : TextDecoration.none,
-          ),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '$parcela$recorrencia'
-              'Vencimento: ${_data.format(lancamento.vencimento)}',
-            ),
-            const SizedBox(height: 4),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                if (!receita)
-                  IndicadorPrioridade(
-                    prioridade: lancamento.prioridade,
-                    compacto: true,
-                  ),
-                IndicadorSituacao(
-                  lancamento: lancamento,
-                  referencia: referencia,
-                ),
-              ],
-            ),
-          ],
-        ),
-        isThreeLine: true,
-        trailing: SizedBox(
-          width: 115,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 13, 14, 12),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                _moeda.format(lancamento.valor),
-                style: TextStyle(
-                  color: receita ? Colors.green : Colors.red,
-                  fontWeight: FontWeight.bold,
+                lancamento.descricao,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  decoration: concluido
+                      ? TextDecoration.lineThrough
+                      : TextDecoration.none,
                 ),
               ),
-              const SizedBox(height: 4),
-              Icon(
-                concluido
-                    ? Icons.check_circle
-                    : atrasado
-                    ? Icons.warning_amber_rounded
-                    : Icons.schedule,
-                color: corSituacao,
-                size: 20,
+              const SizedBox(height: 10),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '$parcela$recorrencia$rotuloData: '
+                          '${_data.format(lancamento.vencimento)}',
+                        ),
+                        const SizedBox(height: 5),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            if (!receita)
+                              IndicadorPrioridade(
+                                prioridade: lancamento.prioridade,
+                                compacto: true,
+                              ),
+                            IndicadorSituacao(
+                              lancamento: lancamento,
+                              referencia: referencia,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        _moeda.format(lancamento.valor),
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: receita ? Colors.green : Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Icon(
+                        concluido
+                            ? Icons.check_circle
+                            : atrasado
+                            ? Icons.warning_amber_rounded
+                            : Icons.schedule,
+                        color: corSituacao,
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ],
           ),
@@ -331,23 +343,52 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
     final saldoPendente = lancamentosDoMes
         .where((item) => item.status == StatusLancamento.pendente)
         .fold<double>(0, (soma, item) => soma + item.valor);
+    final totalConcluido = lancamentosDoMes
+        .where((item) => item.status == StatusLancamento.concluido)
+        .fold<double>(0, (soma, item) => soma + item.valor);
     final receita = widget.tipo == TipoLancamento.receita;
+    final tipoOposto = receita
+        ? TipoLancamento.despesa
+        : TipoLancamento.receita;
+    final saldoOposto = todos
+        .where(
+          (item) =>
+              item.tipo == tipoOposto &&
+              !item.excluido &&
+              _pertenceAoMes(item) &&
+              item.status == StatusLancamento.pendente,
+        )
+        .fold<double>(0, (soma, item) => soma + item.valor);
 
     return Card(
       margin: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
-        child: Row(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Column(
           children: [
+            _ItemResumo(
+              titulo: receita ? 'Saldo a pagar' : 'Saldo a receber',
+              valor: _moeda.format(saldoOposto),
+              cor: receita ? const Color(0xFFC62828) : const Color(0xFF00897B),
+              destaque: true,
+            ),
+            const Divider(height: 1),
             _ItemResumo(
               titulo: receita ? 'Total a receber' : 'Total a pagar',
               valor: _moeda.format(total),
-              cor: receita ? Colors.green : Colors.red,
+              cor: const Color(0xFF1565C0),
             ),
+            const Divider(height: 1),
+            _ItemResumo(
+              titulo: receita ? 'Total recebido' : 'Total pago',
+              valor: _moeda.format(totalConcluido),
+              cor: const Color(0xFF168447),
+            ),
+            const Divider(height: 1),
             _ItemResumo(
               titulo: receita ? 'Saldo a receber' : 'Saldo a pagar',
               valor: _moeda.format(saldoPendente),
-              cor: receita ? Colors.green : Colors.red,
+              cor: receita ? const Color(0xFF00897B) : const Color(0xFFC62828),
             ),
           ],
         ),
@@ -468,7 +509,7 @@ class _CabecalhoGrupo extends StatelessWidget {
           _LinhaSubtotal(
             rotulo: 'Restante a pagar',
             valor: restanteAPagar,
-            cor: const Color(0xFFF57F17),
+            cor: const Color(0xFFC62828),
           ),
           _LinhaSubtotal(
             rotulo: 'Total pago',
@@ -517,32 +558,40 @@ class _ItemResumo extends StatelessWidget {
     required this.titulo,
     required this.valor,
     required this.cor,
+    this.destaque = false,
   });
 
   final String titulo;
   final String valor;
   final Color cor;
+  final bool destaque;
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      decoration: destaque
+          ? BoxDecoration(
+              color: cor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+            )
+          : null,
+      child: Row(
         children: [
-          Text(
-            titulo,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.labelMedium,
+          Expanded(
+            child: Text(
+              titulo,
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(color: cor, fontWeight: FontWeight.w600),
+            ),
           ),
-          const SizedBox(height: 6),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                valor,
-                style: Theme.of(context).textTheme.titleMedium
-                    ?.copyWith(color: cor, fontWeight: FontWeight.bold),
-              ),
+          const SizedBox(width: 12),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              valor,
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(color: cor, fontWeight: FontWeight.bold),
             ),
           ),
         ],

@@ -4,7 +4,7 @@ enum TipoLancamento { receita, despesa }
 
 enum StatusLancamento { pendente, concluido }
 
-enum FormaLancamento { vista, parcelado, fixo }
+enum FormaLancamento { vista, parcelado, entradaParcelas, fixo }
 
 enum PrioridadeLancamento { essencial, alta, normal, baixa }
 
@@ -63,7 +63,12 @@ class Lancamento {
   final bool excluido;
 
   bool get fazParteDeSerie =>
-      forma == FormaLancamento.parcelado || forma == FormaLancamento.fixo;
+      forma == FormaLancamento.parcelado ||
+      forma == FormaLancamento.entradaParcelas ||
+      forma == FormaLancamento.fixo;
+
+  bool get ehEntrada =>
+      forma == FormaLancamento.entradaParcelas && parcelaAtual == 0;
 
   bool estaAtrasadoEm(DateTime referencia) {
     if (status == StatusLancamento.concluido) {

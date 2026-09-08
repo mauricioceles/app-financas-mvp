@@ -76,6 +76,7 @@ void main() {
 
     expect(criar(FormaLancamento.vista).fazParteDeSerie, isFalse);
     expect(criar(FormaLancamento.parcelado).fazParteDeSerie, isTrue);
+    expect(criar(FormaLancamento.entradaParcelas).fazParteDeSerie, isTrue);
     expect(criar(FormaLancamento.fixo).fazParteDeSerie, isTrue);
   });
 

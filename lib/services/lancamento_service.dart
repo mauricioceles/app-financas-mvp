@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/lancamento.dart';
+import '../models/plano_com_entrada.dart';
 import '../models/plano_parcelamento.dart';
 
 class LancamentoService {
@@ -72,6 +73,12 @@ class LancamentoService {
       return;
     }
 
+    if (lancamento.forma == FormaLancamento.entradaParcelas) {
+      throw ArgumentError(
+        'Use adicionarComEntrada para lançamentos com entrada.',
+      );
+    }
+
     final lote = _firestore.batch();
     final grupoId = _colecao.doc().id;
     final valorParcelaCentavos = (lancamento.valor * 100).round();
@@ -113,6 +120,59 @@ class LancamentoService {
         ...parcela.toMap(),
         'grupoId': grupoId,
         'valorTotal': valorTotal,
+        'criadoEm': FieldValue.serverTimestamp(),
+      });
+    }
+
+    await lote.commit();
+  }
+
+  Future<void> adicionarComEntrada({
+    required String descricao,
+    required TipoLancamento tipo,
+    required double valorEntrada,
+    required DateTime dataEntrada,
+    required StatusLancamento statusEntrada,
+    required int quantidadeParcelas,
+    required double valorParcela,
+    required DateTime primeiroVencimento,
+    required PrioridadeLancamento prioridade,
+  }) async {
+    final plano = PlanoComEntrada.gerar(
+      valorEntrada: valorEntrada,
+      dataEntrada: dataEntrada,
+      statusEntrada: statusEntrada,
+      quantidadeParcelas: quantidadeParcelas,
+      valorParcela: valorParcela,
+      primeiroVencimento: primeiroVencimento,
+    );
+    final grupoId = _colecao.doc().id;
+    final valorTotalCentavos = plano.fold<int>(
+      0,
+      (soma, item) => soma + (item.valor * 100).round(),
+    );
+    final lote = _firestore.batch();
+
+    for (final item in plano) {
+      final referencia = _colecao.doc();
+      final lancamento = Lancamento(
+        id: referencia.id,
+        descricao: descricao,
+        valor: item.valor,
+        tipo: tipo,
+        vencimento: item.vencimento,
+        status: item.status,
+        forma: FormaLancamento.entradaParcelas,
+        parcelaAtual: item.numero,
+        totalParcelas: quantidadeParcelas,
+        prioridade: prioridade,
+        grupoId: grupoId,
+      );
+
+      lote.set(referencia, {
+        ...lancamento.toMap(),
+        'grupoId': grupoId,
+        'valorTotal': valorTotalCentavos / 100,
         'criadoEm': FieldValue.serverTimestamp(),
       });
     }
@@ -327,7 +387,8 @@ class LancamentoService {
       return;
     }
 
-    if (lancamento.forma == FormaLancamento.parcelado) {
+    if (lancamento.forma == FormaLancamento.parcelado ||
+        lancamento.forma == FormaLancamento.entradaParcelas) {
       await _excluirParcelas(lancamento, escopo);
       return;
     }
