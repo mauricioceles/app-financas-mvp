@@ -24,7 +24,7 @@ class TelaDetalheLancamento extends StatelessWidget {
   final DateFormat _data = DateFormat('dd/MM/yyyy');
 
   Future<void> _editar(BuildContext context, Lancamento lancamento) async {
-    final editou = await Navigator.push<bool>(
+    final resultado = await Navigator.push<ResultadoEdicaoLancamento>(
       context,
       MaterialPageRoute(
         builder: (context) => FormularioEdicaoLancamento(
@@ -34,7 +34,19 @@ class TelaDetalheLancamento extends StatelessWidget {
       ),
     );
 
-    if (editou == true && context.mounted) {
+    if (resultado == null || !context.mounted) {
+      return;
+    }
+
+    if (resultado == ResultadoEdicaoLancamento.convertido) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Novo parcelamento criado com sucesso.')),
+      );
+      Navigator.pop(context);
+      return;
+    }
+
+    if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Lançamento atualizado com sucesso.')),
       );

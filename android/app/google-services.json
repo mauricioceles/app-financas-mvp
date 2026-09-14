@@ -7,12 +7,33 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:93889651143:android:ae500f8d710af889f079e2",
+        "mobilesdk_app_id": "1:93889651143:android:13636d8dc82fe310f079e2",
         "android_client_info": {
-          "package_name": "com.example.app_financas_mvp"
+          "package_name": "br.com.mauricioceles.meumesfinancas"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "93889651143-7qu33s7jf1k8mnv2rkarnajpe227gel6.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "br.com.mauricioceles.meumesfinancas",
+            "certificate_hash": "dc584fb3e690402f01f7abcb8cb5b742b3012976"
+          }
+        },
+        {
+          "client_id": "93889651143-9mk4vo8dmh1915b0rgjuc2fhcsf4e8la.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "br.com.mauricioceles.meumesfinancas",
+            "certificate_hash": "99d5732631c77b9f66301b94ef1aea4a59ba405a"
+          }
+        },
+        {
+          "client_id": "93889651143-5msu8chldt8beqrm196fiqegjrur5r8p.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAL074wKCV0d83QK5EXk0VEb05Qi15UJus"
@@ -20,7 +41,41 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "93889651143-5msu8chldt8beqrm196fiqegjrur5r8p.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:93889651143:android:ae500f8d710af889f079e2",
+        "android_client_info": {
+          "package_name": "com.example.app_financas_mvp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "93889651143-5msu8chldt8beqrm196fiqegjrur5r8p.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAL074wKCV0d83QK5EXk0VEb05Qi15UJus"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "93889651143-5msu8chldt8beqrm196fiqegjrur5r8p.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

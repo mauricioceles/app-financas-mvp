@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../models/conversao_forma_lancamento.dart';
 import '../models/lancamento.dart';
 import '../models/plano_com_entrada.dart';
 import '../models/plano_parcelamento.dart';
@@ -341,6 +342,186 @@ class LancamentoService {
     }
   }
 
+  Future<void> converterForma({
+    required Lancamento lancamento,
+    required FormaLancamento novaForma,
+    required String descricao,
+    required double valor,
+    required DateTime vencimento,
+    required PrioridadeLancamento prioridade,
+    required int quantidadeParcelas,
+    double? valorParcelaRestante,
+    DateTime? primeiroVencimento,
+    StatusLancamento statusEntrada = StatusLancamento.pendente,
+  }) async {
+    if (novaForma == lancamento.forma) {
+      await atualizarOcorrencia(
+        lancamento: lancamento,
+        descricao: descricao,
+        valor: valor,
+        vencimento: vencimento,
+        prioridade: prioridade,
+      );
+      return;
+    }
+
+    if (!mudancaDeFormaPermitida(lancamento, novaForma)) {
+      throw StateError('Esta mudança de forma não é permitida.');
+    }
+
+    if (novaForma != FormaLancamento.parcelado &&
+        novaForma != FormaLancamento.entradaParcelas) {
+      throw StateError('A forma escolhida não pode ser usada nesta conversão.');
+    }
+
+    final descricaoNormalizada = descricao.trim();
+    final vencimentoNormalizado = _somenteData(vencimento);
+    final grupoId = _colecao.doc().id;
+    final novosLancamentos = <Lancamento>[];
+    late final double valorTotal;
+
+    if (novaForma == FormaLancamento.parcelado) {
+      final valorCentavos = (valor * 100).round();
+      if (valorCentavos <= 0) {
+        throw ArgumentError('O valor da parcela deve ser maior que zero.');
+      }
+
+      final plano = PlanoParcelamento.gerar(
+        parcelaAtual: 1,
+        totalParcelas: quantidadeParcelas,
+        vencimentoAtual: vencimentoNormalizado,
+        statusAtual: StatusLancamento.pendente,
+      );
+      final valorNormalizado = valorCentavos / 100;
+      valorTotal = valorCentavos * quantidadeParcelas / 100;
+
+      for (final item in plano) {
+        final referencia = _colecao.doc();
+        novosLancamentos.add(
+          Lancamento(
+            id: referencia.id,
+            descricao: descricaoNormalizada,
+            valor: valorNormalizado,
+            tipo: lancamento.tipo,
+            vencimento: item.vencimento,
+            status: item.status,
+            forma: FormaLancamento.parcelado,
+            parcelaAtual: item.numero,
+            totalParcelas: quantidadeParcelas,
+            prioridade: prioridade,
+            grupoId: grupoId,
+          ),
+        );
+      }
+    } else {
+      if (valorParcelaRestante == null || primeiroVencimento == null) {
+        throw ArgumentError(
+          'Informe o valor e o primeiro vencimento das parcelas restantes.',
+        );
+      }
+
+      final plano = PlanoComEntrada.gerar(
+        valorEntrada: valor,
+        dataEntrada: vencimentoNormalizado,
+        statusEntrada: statusEntrada,
+        quantidadeParcelas: quantidadeParcelas,
+        valorParcela: valorParcelaRestante,
+        primeiroVencimento: primeiroVencimento,
+      );
+      final totalCentavos = plano.fold<int>(
+        0,
+        (soma, item) => soma + (item.valor * 100).round(),
+      );
+      valorTotal = totalCentavos / 100;
+
+      for (final item in plano) {
+        final referencia = _colecao.doc();
+        novosLancamentos.add(
+          Lancamento(
+            id: referencia.id,
+            descricao: descricaoNormalizada,
+            valor: item.valor,
+            tipo: lancamento.tipo,
+            vencimento: item.vencimento,
+            status: item.status,
+            forma: FormaLancamento.entradaParcelas,
+            parcelaAtual: item.numero,
+            totalParcelas: quantidadeParcelas,
+            prioridade: prioridade,
+            grupoId: grupoId,
+          ),
+        );
+      }
+    }
+
+    final documentosSubstituidos = await _documentosSubstituidosNaConversao(
+      lancamento,
+    );
+    final totalOperacoes =
+        documentosSubstituidos.length +
+        novosLancamentos.length +
+        (lancamento.recorrenciaId == null ? 0 : 1);
+    if (totalOperacoes > 450) {
+      throw StateError(
+        'Há muitos registros futuros para converter de uma vez. '
+        'Exclua alguns registros futuros e tente novamente.',
+      );
+    }
+
+    final lote = _firestore.batch();
+    for (final documento in documentosSubstituidos) {
+      lote.delete(documento);
+    }
+
+    if (lancamento.recorrenciaId != null) {
+      lote.update(_recorrencias.doc(lancamento.recorrenciaId), {
+        'ativa': false,
+        'encerradaEm': Timestamp.fromDate(lancamento.vencimento),
+        'convertidaEm': FieldValue.serverTimestamp(),
+        'convertidaPara': novaForma.name,
+      });
+    }
+
+    for (final novoLancamento in novosLancamentos) {
+      final referencia = _colecao.doc(novoLancamento.id);
+      lote.set(referencia, {
+        ...novoLancamento.toMap(),
+        'grupoId': grupoId,
+        'valorTotal': valorTotal,
+        'convertidoDe': lancamento.forma.name,
+        'origemLancamentoId': lancamento.id,
+        'criadoEm': FieldValue.serverTimestamp(),
+      });
+    }
+
+    await lote.commit();
+  }
+
+  Future<List<DocumentReference<Map<String, dynamic>>>>
+  _documentosSubstituidosNaConversao(Lancamento lancamento) async {
+    if (lancamento.forma != FormaLancamento.fixo ||
+        lancamento.recorrenciaId == null) {
+      return <DocumentReference<Map<String, dynamic>>>[
+        _colecao.doc(lancamento.id),
+      ];
+    }
+
+    final snapshot = await _colecao
+        .where('recorrenciaId', isEqualTo: lancamento.recorrenciaId)
+        .get();
+    return snapshot.docs
+        .where((documento) {
+          final dados = documento.data();
+          final vencimento = (dados['vencimento'] as Timestamp).toDate();
+          return deveSubstituirOcorrenciaFixa(
+            vencimentoOcorrencia: vencimento,
+            vencimentoSelecionado: lancamento.vencimento,
+          );
+        })
+        .map((documento) => documento.reference)
+        .toList();
+  }
+
   Future<void> _atualizarPrioridadeDaSerie(
     Lancamento lancamento,
     PrioridadeLancamento prioridade,
@@ -493,5 +674,9 @@ class LancamentoService {
   String _idOcorrencia(String recorrenciaId, DateTime mes) {
     final numeroMes = mes.month.toString().padLeft(2, '0');
     return '${recorrenciaId}_${mes.year}$numeroMes';
+  }
+
+  DateTime _somenteData(DateTime data) {
+    return DateTime(data.year, data.month, data.day);
   }
 }

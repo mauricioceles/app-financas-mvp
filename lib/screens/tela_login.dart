@@ -1,6 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+
+Future<void>? _inicializacaoGoogle;
 
 class TelaLogin extends StatefulWidget {
   const TelaLogin({super.key, required this.onContinuarSemConta});
@@ -15,35 +18,17 @@ class _TelaLoginState extends State<TelaLogin> {
   bool _carregando = false;
 
   Future<void> _entrarComGoogle() async {
-    if (!kIsWeb) {
-      _mostrarMensagem(
-        'O login Google no Android será configurado na próxima etapa.',
-      );
-      return;
-    }
-
     setState(() => _carregando = true);
 
-    final autenticacao = FirebaseAuth.instance;
-    final provedor = GoogleAuthProvider();
-
     try {
-      final usuarioAtual = autenticacao.currentUser;
-
-      if (usuarioAtual?.isAnonymous == true) {
-        try {
-          await usuarioAtual!.linkWithPopup(provedor);
-        } on FirebaseAuthException catch (erro) {
-          if (erro.code == 'credential-already-in-use' ||
-              erro.code == 'email-already-in-use') {
-            await autenticacao.signOut();
-            await autenticacao.signInWithPopup(provedor);
-          } else {
-            rethrow;
-          }
-        }
+      if (kIsWeb) {
+        await _entrarComGoogleNaWeb();
       } else {
-        await autenticacao.signInWithPopup(provedor);
+        await _entrarComGoogleNoAndroid();
+      }
+    } on GoogleSignInException catch (erro) {
+      if (erro.code != GoogleSignInExceptionCode.canceled) {
+        _mostrarMensagem(_mensagemDoErroGoogle(erro));
       }
     } on FirebaseAuthException catch (erro) {
       if (erro.code != 'popup-closed-by-user' &&
@@ -56,6 +41,79 @@ class _TelaLoginState extends State<TelaLogin> {
       if (mounted) {
         setState(() => _carregando = false);
       }
+    }
+  }
+
+  Future<void> _entrarComGoogleNaWeb() async {
+    final autenticacao = FirebaseAuth.instance;
+    final provedor = GoogleAuthProvider();
+
+    await _autenticarPreservandoContaTemporaria(
+      entrar: () => autenticacao.signInWithPopup(provedor),
+      vincular: (usuario) => usuario.linkWithPopup(provedor),
+    );
+  }
+
+  Future<void> _entrarComGoogleNoAndroid() async {
+    _inicializacaoGoogle ??= GoogleSignIn.instance.initialize();
+    await _inicializacaoGoogle;
+
+    final contaGoogle = await GoogleSignIn.instance.authenticate();
+    final autenticacaoGoogle = contaGoogle.authentication;
+
+    if (autenticacaoGoogle.idToken == null) {
+      throw StateError('O Google não forneceu o identificador de acesso.');
+    }
+
+    final credencial = GoogleAuthProvider.credential(
+      idToken: autenticacaoGoogle.idToken,
+    );
+
+    await _autenticarPreservandoContaTemporaria(
+      entrar: () => FirebaseAuth.instance.signInWithCredential(credencial),
+      vincular: (usuario) => usuario.linkWithCredential(credencial),
+    );
+  }
+
+  Future<void> _autenticarPreservandoContaTemporaria({
+    required Future<UserCredential> Function() entrar,
+    required Future<UserCredential> Function(User usuario) vincular,
+  }) async {
+    final autenticacao = FirebaseAuth.instance;
+    final usuarioAtual = autenticacao.currentUser;
+
+    if (usuarioAtual?.isAnonymous != true) {
+      await entrar();
+      return;
+    }
+
+    try {
+      await vincular(usuarioAtual!);
+    } on FirebaseAuthException catch (erro) {
+      if (!_credencialJaPertenceAOutraConta(erro.code)) {
+        rethrow;
+      }
+
+      await autenticacao.signOut();
+      await entrar();
+    }
+  }
+
+  bool _credencialJaPertenceAOutraConta(String codigo) {
+    return codigo == 'credential-already-in-use' ||
+        codigo == 'email-already-in-use' ||
+        codigo == 'account-exists-with-different-credential';
+  }
+
+  String _mensagemDoErroGoogle(GoogleSignInException erro) {
+    switch (erro.code) {
+      case GoogleSignInExceptionCode.clientConfigurationError:
+      case GoogleSignInExceptionCode.providerConfigurationError:
+        return 'O login Google ainda não está configurado corretamente no Android.';
+      case GoogleSignInExceptionCode.interrupted:
+        return 'O login foi interrompido. Tente novamente.';
+      default:
+        return 'Não foi possível abrir o login Google.';
     }
   }
 
