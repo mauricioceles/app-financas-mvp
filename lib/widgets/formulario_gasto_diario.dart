@@ -53,10 +53,12 @@ class _FormularioGastoDiarioState extends State<FormularioGastoDiario> {
       ));
       if (mounted) Navigator.pop(context);
     } catch (_) {
-      if (mounted) setState(() {
-        _salvando = false;
-        _erro = 'Não foi possível salvar. Verifique sua conexão e tente novamente.';
-      });
+      if (mounted) {
+        setState(() {
+          _salvando = false;
+          _erro = 'Não foi possível salvar. Verifique sua conexão e tente novamente.';
+        });
+      }
     }
   }
 
