@@ -13,5 +13,43 @@ service cloud.firestore {
         if request.auth != null
         && request.auth.uid == userId;
     }
+    match /usuarios/{userId}/categoriasGastos/{categoriaId} {
+      function dono() {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      function categoriaValida() {
+        let d = request.resource.data;
+        return d.keys().hasAll(['nome', 'paiId'])
+          && d.keys().hasOnly(['nome', 'paiId'])
+          && d.nome is string && d.nome.size() > 0 && d.nome.size() <= 60
+          && (d.paiId == null || (d.paiId is string && d.paiId != categoriaId
+            && get(/databases/$(database)/documents/usuarios/$(userId)/categoriasGastos/$(d.paiId)).data.paiId == null));
+      }
+      allow read: if dono();
+      allow create: if dono() && categoriaValida();
+      // Renomear preserva os IDs usados no histórico e a hierarquia.
+      allow update: if dono() && categoriaValida()
+        && request.resource.data.paiId == resource.data.paiId;
+    }
+
+    match /usuarios/{userId}/gastosDiarios/{gastoId} {
+      function dono() {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      function gastoValido() {
+        let d = request.resource.data;
+        return d.keys().hasAll(['valorCentavos', 'data', 'categoriaId', 'subcategoriaId', 'observacao'])
+          && d.keys().hasOnly(['valorCentavos', 'data', 'categoriaId', 'subcategoriaId', 'observacao'])
+          && d.valorCentavos is int && d.valorCentavos > 0 && d.valorCentavos <= 99999999999
+          && d.data is timestamp
+          && d.observacao is string && d.observacao.size() <= 300
+          && d.categoriaId is string
+          && get(/databases/$(database)/documents/usuarios/$(userId)/categoriasGastos/$(d.categoriaId)).data.paiId == null
+          && (d.subcategoriaId == null || (d.subcategoriaId is string
+            && get(/databases/$(database)/documents/usuarios/$(userId)/categoriasGastos/$(d.subcategoriaId)).data.paiId == d.categoriaId));
+      }
+      allow read, delete: if dono();
+      allow create, update: if dono() && gastoValido();
+    }
   }
 }

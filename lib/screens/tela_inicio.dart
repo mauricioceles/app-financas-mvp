@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../models/lancamento.dart';
 import 'tela_principal.dart';
+import 'tela_gastos_diarios.dart';
 
 class TelaInicio extends StatelessWidget {
   const TelaInicio({super.key});
@@ -137,7 +138,7 @@ class TelaPessoal extends StatelessWidget {
       appBar: AppBar(title: const Text('Pessoal')),
       body: SafeArea(
         child: Center(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 560),
@@ -170,6 +171,20 @@ class TelaPessoal extends StatelessWidget {
                     cor: const Color(0xFF198754),
                     onTap: () =>
                         _abrirLancamentos(context, TipoLancamento.receita),
+                  ),
+                  const SizedBox(height: 16),
+                  _BotaoArea(
+                    chave: const Key('botao-gastos-diarios'),
+                    titulo: 'GASTOS DIÁRIOS',
+                    descricao: 'Saiba para onde vai seu dinheiro, por categoria',
+                    icone: Icons.receipt_long_outlined,
+                    cor: const Color(0xFF826025),
+                    onTap: () => Navigator.push<void>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const TelaGastosDiarios(),
+                      ),
+                    ),
                   ),
                 ],
               ),
