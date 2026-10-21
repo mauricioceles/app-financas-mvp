@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
 import '../models/gasto_diario.dart';
 
 class GastoDiarioService {
@@ -23,24 +24,43 @@ class GastoDiarioService {
 
   Stream<List<CategoriaGasto>> observarCategorias() =>
       _categorias.snapshots().map((snapshot) {
-        final categorias = snapshot.docs.map((doc) =>
-            CategoriaGasto.fromMap(doc.id, doc.data())).toList();
-        categorias.sort((a, b) => a.nome.toLowerCase().compareTo(b.nome.toLowerCase()));
+        final categorias = snapshot.docs
+            .map((doc) => CategoriaGasto.fromMap(doc.id, doc.data()))
+            .toList();
+        categorias.sort(
+          (a, b) => a.nome.toLowerCase().compareTo(b.nome.toLowerCase()),
+        );
         return categorias;
       });
 
   /// O fim é inclusivo na interface; a consulta usa o próximo dia exclusivo.
   Stream<List<GastoDiario>> observarGastos(DateTime inicio, DateTime fim) =>
       _gastos
-        .where('data', isGreaterThanOrEqualTo: Timestamp.fromDate(
-            DateTime(inicio.year, inicio.month, inicio.day)))
-        .where('data', isLessThan: Timestamp.fromDate(
-            DateTime(fim.year, fim.month, fim.day + 1)))
-        .orderBy('data', descending: true)
-        .snapshots().map((snapshot) => snapshot.docs.map((doc) =>
-            GastoDiario.fromMap(doc.id, doc.data())).toList());
+          .where(
+            'data',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(
+              DateTime(inicio.year, inicio.month, inicio.day),
+            ),
+          )
+          .where(
+            'data',
+            isLessThan: Timestamp.fromDate(
+              DateTime(fim.year, fim.month, fim.day + 1),
+            ),
+          )
+          .orderBy('data', descending: true)
+          .snapshots()
+          .map(
+            (snapshot) => snapshot.docs
+                .map((doc) => GastoDiario.fromMap(doc.id, doc.data()))
+                .toList(),
+          );
 
-  Future<String> salvarCategoria(String nome, {String? id, String? paiId}) async {
+  Future<String> salvarCategoria(
+    String nome, {
+    String? id,
+    String? paiId,
+  }) async {
     final limpo = nome.trim();
     if (limpo.isEmpty || limpo.length > 60) {
       throw ArgumentError('Use um nome de 1 a 60 caracteres.');
@@ -65,7 +85,8 @@ class GastoDiarioService {
   }
 
   Future<void> salvar(GastoDiario gasto) async {
-    if (gasto.valorCentavos <= 0 || gasto.valorCentavos > 99999999999 ||
+    if (gasto.valorCentavos <= 0 ||
+        gasto.valorCentavos > 99999999999 ||
         gasto.observacao.trim().length > 300) {
       throw ArgumentError('Confira o valor e a observação.');
     }
@@ -78,7 +99,9 @@ class GastoDiarioService {
       if (gasto.subcategoriaId != null) {
         final sub = await tx.get(_categorias.doc(gasto.subcategoriaId!));
         if (!sub.exists || sub.data()?['paiId'] != gasto.categoriaId) {
-          throw StateError('A subcategoria não pertence à categoria escolhida.');
+          throw StateError(
+            'A subcategoria não pertence à categoria escolhida.',
+          );
         }
       }
       if (gasto.id.isNotEmpty && !(await tx.get(ref)).exists) {

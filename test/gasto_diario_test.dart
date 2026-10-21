@@ -11,15 +11,30 @@ void main() {
     expect(lerCentavos('0,01'), 1);
     expect(lerCentavos(' 10 '), 1000);
     expect(lerCentavos('10,5'), 1050);
-    for (final valor in ['', '0', '-10', '1.234', '1,234', '1.2,50', 'NaN', '1e3', '1000000000']) {
+    for (final valor in [
+      '',
+      '0',
+      '-10',
+      '1.234',
+      '1,234',
+      '1.2,50',
+      'NaN',
+      '1e3',
+      '1000000000',
+    ]) {
       expect(lerCentavos(valor), isNull, reason: valor);
     }
   });
 
   test('preserva categoria, subcategoria e valor ao serializar', () {
-    final gasto = GastoDiario(id: 'g1', valorCentavos: 1299,
-      data: DateTime(2026, 10, 20, 18, 45), categoriaId: 'alimentacao',
-      subcategoriaId: 'padaria', observacao: ' Café ');
+    final gasto = GastoDiario(
+      id: 'g1',
+      valorCentavos: 1299,
+      data: DateTime(2026, 10, 20, 18, 45),
+      categoriaId: 'alimentacao',
+      subcategoriaId: 'padaria',
+      observacao: ' Café ',
+    );
     final salvo = GastoDiario.fromMap(gasto.id, gasto.toMap());
     expect(salvo.valorCentavos, 1299);
     expect(salvo.data, DateTime(2026, 10, 20));
@@ -29,14 +44,20 @@ void main() {
   });
 
   test('totaliza centavos e aceita gastos sem subcategoria', () {
-    GastoDiario gasto(int valor) => GastoDiario(id: '', valorCentavos: valor,
-      data: DateTime(2026, 10, 20), categoriaId: 'transporte');
+    GastoDiario gasto(int valor) => GastoDiario(
+      id: '',
+      valorCentavos: valor,
+      data: DateTime(2026, 10, 20),
+      categoriaId: 'transporte',
+    );
     expect(totalGastos([gasto(10), gasto(20), gasto(1299)]), 1329);
     expect(totalGastos([]), 0);
     expect(GastoDiario.fromMap('g', gasto(10).toMap()).subcategoriaId, isNull);
   });
 
-  testWidgets('menu pessoal permite alcançar gastos diários em tela pequena', (tester) async {
+  testWidgets('menu pessoal permite alcançar gastos diários em tela pequena', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(360, 640);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);

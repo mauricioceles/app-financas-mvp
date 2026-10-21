@@ -176,7 +176,8 @@ class TelaPessoal extends StatelessWidget {
                   _BotaoArea(
                     chave: const Key('botao-gastos-diarios'),
                     titulo: 'GASTOS DIÁRIOS',
-                    descricao: 'Saiba para onde vai seu dinheiro, por categoria',
+                    descricao:
+                        'Saiba para onde vai seu dinheiro, por categoria',
                     icone: Icons.receipt_long_outlined,
                     cor: const Color(0xFF826025),
                     onTap: () => Navigator.push<void>(

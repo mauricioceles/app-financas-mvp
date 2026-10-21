@@ -44,8 +44,11 @@ class CategoriaGasto {
   final String? paiId;
 
   factory CategoriaGasto.fromMap(String id, Map<String, dynamic> map) =>
-      CategoriaGasto(id: id, nome: map['nome'] as String,
-        paiId: map['paiId'] as String?);
+      CategoriaGasto(
+        id: id,
+        nome: map['nome'] as String,
+        paiId: map['paiId'] as String?,
+      );
 }
 
 /// Aceita 12,50, 12.50 e 1.234,56. Rejeita casas extras e valores negativos.
@@ -61,7 +64,9 @@ int? lerCentavos(String texto) {
   final partes = valor.split('.');
   final reais = int.tryParse(partes[0]);
   if (reais == null || reais > 999999999) return null;
-  final centavos = partes.length == 1 ? 0 : int.parse(partes[1].padRight(2, '0'));
+  final centavos = partes.length == 1
+      ? 0
+      : int.parse(partes[1].padRight(2, '0'));
   final total = reais * 100 + centavos;
   return total > 0 ? total : null;
 }
