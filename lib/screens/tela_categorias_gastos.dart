@@ -27,11 +27,13 @@ class _TelaCategoriasGastosState extends State<TelaCategoriasGastos> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Categorias e subcategorias')),
     body: StreamBuilder<List<CategoriaGasto>>(stream: _stream, builder: (context, snapshot) {
-      if (snapshot.hasError) return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      if (snapshot.hasError) {
+        return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
         const Text('Não foi possível carregar as categorias.'),
         TextButton(onPressed: () => setState(() => _stream = widget.service.observarCategorias()),
           child: const Text('Tentar novamente')),
       ]));
+      }
       if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
       final categorias = snapshot.data!;
       final principais = categorias.where((c) => c.paiId == null).toList();
@@ -93,10 +95,12 @@ class _EditorCategoriaState extends State<_EditorCategoria> {
       await widget.service.salvarCategoria(_nome.text, id: widget.categoria?.id, paiId: widget.paiId);
       if (mounted) Navigator.pop(context);
     } catch (_) {
-      if (mounted) setState(() {
-        _salvando = false;
-        _erro = 'Não foi possível salvar. Verifique sua conexão e tente novamente.';
-      });
+      if (mounted) {
+        setState(() {
+          _salvando = false;
+          _erro = 'Não foi possível salvar. Verifique sua conexão e tente novamente.';
+        });
+      }
     }
   }
 
