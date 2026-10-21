@@ -76,8 +76,10 @@ class _TelaGastosDiariosState extends State<TelaGastosDiarios> {
     try {
       await _service.excluir(gasto.id);
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Não foi possível excluir. Verifique a conexão e tente novamente.')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Não foi possível excluir. Verifique a conexão e tente novamente.')));
+      }
     }
   }
 
